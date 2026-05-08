@@ -61,3 +61,26 @@ and testing on the other (Strategy B).
 on each altitude in isolation; we accept this for the operational and
 data-efficiency benefits, and we leave per-altitude fine-tuning as future
 work if stratified results show large gaps.
+
+
+---
+## 2026-05-08 — Dependency conflict: regex pinning between transformers and boxmot
+
+**Issue:** During environment setup, transformers 5.8.0 (pulled in by RF-DETR)
+performs a runtime check requiring `regex >= 2025.10.22`. boxmot has a
+metadata-level pin requiring `regex < 2025.0.0`. Pip's resolver picked the older
+version to satisfy boxmot's metadata, which broke transformers and rfdetr at
+import time.
+
+**Resolution:** Upgraded `regex` to `2026.4.4`, which satisfies transformers'
+runtime requirement. boxmot's pin is metadata-only with no runtime enforcement,
+so it still imports and runs correctly. Pip emits a metadata-conflict warning
+about boxmot, which is harmless and can be ignored.
+
+**Verification:** `import transformers`, `import rfdetr`, `import boxmot` all
+succeed. Full GPU verification (Step 9 of environment setup) passed cleanly.
+
+**Reproducibility note:** When recreating the environment from `requirements.lock.txt`,
+the regex version is already locked at 2026.4.4. No additional steps needed.
+---
+
