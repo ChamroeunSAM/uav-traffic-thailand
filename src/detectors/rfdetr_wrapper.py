@@ -50,6 +50,8 @@ import time
 from pathlib import Path
 from typing import Any
 
+import yaml
+
 from .base import Detection, DetectorWrapper
 
 logger = logging.getLogger(__name__)
@@ -78,7 +80,7 @@ class RFDETRWrapper(DetectorWrapper):
 
     def train(self, output_dir: Path) -> dict[str, Any]:
         cfg = self.config
-        dataset_dir = self._prepare_dataset_dir(Path(cfg["data_yaml"]).parent)
+        dataset_dir = self._prepare_dataset_dir(Path(cfg["data_yaml"]))
 
         train_kwargs = {
             "dataset_dir": str(dataset_dir),
@@ -153,26 +155,54 @@ class RFDETRWrapper(DetectorWrapper):
             ) from e
 
     @staticmethod
-    def _prepare_dataset_dir(merged_root: Path) -> Path:
-        """Ensure rfdetr's expected `valid/` folder exists alongside `val/`.
+    def _prepare_dataset_dir(data_yaml_path: Path) -> Path:
+        """Resolve the merged dataset root from dataset.yaml and prepare the
+        layout rfdetr expects.
 
-        merged_root is `data/annotations/merged/` (where dataset.yaml lives).
-        rfdetr's YOLO loader hardcodes 'valid' as the validation folder name;
-        we use 'val' (per scripts/00_prepare_splits.py). We hard-copy
-        merged/val -> merged/valid the first time we need it. The copy is
-        idempotent: if merged/valid already exists we assume it is current
-        and skip the copy. This avoids Windows symlink-permission pain.
+        Our project's dataset.yaml (e.g. ``data/splits/dataset.yaml``) is
+        an index file that points at the actual merged dataset via its
+        ``path:`` field — typically ``data/annotations/merged/``. We read
+        that to find the real root.
+
+        rfdetr's YOLO loader requires two things in the dataset root that
+        our merged layout does not produce by default:
+
+          * a ``valid/`` directory mirroring ``val/`` (rfdetr hardcodes
+            that folder name),
+          * a ``data.yaml`` describing the dataset (for class names).
+
+        Both are materialised as idempotent hard copies the first time we
+        need them. Hard copy (rather than symlink) avoids Windows
+        symlink-permission pain.
         """
-        valid = merged_root / "valid"
+        with open(data_yaml_path, "r", encoding="utf-8") as f:
+            ds_cfg = yaml.safe_load(f)
+        required_keys = {"path", "nc", "names"}
+        missing = required_keys - set(ds_cfg.keys() if ds_cfg else ())
+        if missing:
+            raise ValueError(
+                f"dataset.yaml at {data_yaml_path} is missing required keys: "
+                f"{sorted(missing)}. RF-DETR requires path, nc, and names fields."
+            )
+        merged_root = Path(ds_cfg["path"]).resolve()
+
         val = merged_root / "val"
         if not val.exists():
             raise FileNotFoundError(f"Expected validation split at {val}")
+
+        valid = merged_root / "valid"
         if valid.exists():
             logger.info("RF-DETR 'valid/' already present at %s — skipping copy.", valid)
-            return merged_root
-        logger.info("Copying %s -> %s for RF-DETR (this is a one-time hard copy)...", val, valid)
-        shutil.copytree(val, valid)
-        logger.info("Copy complete.")
+        else:
+            logger.info("Copying %s -> %s for RF-DETR (one-time hard copy)...", val, valid)
+            shutil.copytree(val, valid)
+            logger.info("Copy complete.")
+
+        rfdetr_yaml = merged_root / "data.yaml"
+        if not rfdetr_yaml.exists():
+            logger.info("Copying %s -> %s for RF-DETR's YOLO loader.", data_yaml_path, rfdetr_yaml)
+            shutil.copy2(data_yaml_path, rfdetr_yaml)
+
         return merged_root
 
     @staticmethod
