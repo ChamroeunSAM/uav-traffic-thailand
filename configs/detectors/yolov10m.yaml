@@ -1,0 +1,17 @@
+# Full benchmark — YOLOv10-m @ 1280px, 100 epochs (early stop @20).
+# Wang et al. NeurIPS 2024 (NMS-free training, dual assignments).
+detector_class: ultralytics
+model_name: yolov10m.pt
+data_yaml: data/splits/dataset.yaml
+epochs: 100
+imgsz: 1280
+batch: 8
+# Fixed batch=8 — fits on 32GB benchmark hardware (verified via extpilot at 16GB/batch=4 → 11.2GB peak).
+# See docs/decision_log.md for per-detector batch-size rationale.
+patience: 20
+seed: 0
+workers: 4
+device: 0
+project: runs/stage1_detectors
+name: yolov10m_seed{seed}
+notes: "Full benchmark — YOLOv10-m, 5 seeds (0..4), cosine LR, native augs."

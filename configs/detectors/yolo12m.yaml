@@ -4,9 +4,10 @@ model_name: yolo12m.pt
 data_yaml: data/splits/dataset.yaml
 epochs: 100
 imgsz: 1280
-batch: 8
-# Fixed batch size for fair cross-detector comparison.
-# See docs/decision_log.md for rationale.
+batch: 4
+# Fixed batch=4 — area-attention memory constraint at imgsz=1280 (extpilot at 16GB
+# with batch=8 OOM'd; batch=4 ran at 22.3GB peak with shared-memory spillover).
+# Even on 32GB, batch=8 would be tight. See docs/decision_log.md.
 patience: 20
 seed: 0
 workers: 4

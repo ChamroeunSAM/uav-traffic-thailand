@@ -102,3 +102,77 @@ the detectors themselves, not stochastic batch-size variation.
 Pilot results are not used in the benchmark — only for pipeline validation.
 ---
 
+## 2026-05-08 — Stage 1 detector scope: six detectors + per-detector batch sizing
+
+**Scope expansion (RF-DETR → RT-DETR; add YOLOv9 and YOLOv10):** Stage 1
+detector benchmark expanded from four to six detectors to strengthen the
+peer-reviewed citation foundation and broaden architectural coverage.
+
+Final detector roster:
+
+| Detector | Architecture | Reference |
+|---|---|---|
+| YOLOv9-m | CNN + PGI + GELAN | Wang et al. 2024 (peer-reviewed) |
+| YOLOv10-m | NMS-free, dual assignments | Wang et al. NeurIPS 2024 |
+| YOLO11-m | CNN baseline (anchor-free, NMS) | Ultralytics (software citation) |
+| YOLO12-m | Area-attention augmentation | NeurIPS 2025 |
+| YOLO26-m | NMS-free end-to-end | Ultralytics (third-party reviews) |
+| RT-DETR-L | Transformer encoder-decoder | Zhao et al. CVPR 2024 |
+
+**Why RT-DETR replaces RF-DETR:** RF-DETR's pretrained variants top out
+at 704 px native resolution (RFDETRLarge); the training-time weight loader
+in `rfdetr/training/module_model.py:166` calls `load_state_dict` directly
+without PE interpolation, so resolution=1280 fails with a position-embedding
+size-mismatch RuntimeError. Upstream issue #497 (Dec 2025) confirms this is
+a known gap. Patching would create upstream-fork maintenance burden.
+RT-DETR-L (Zhao et al. CVPR 2024) uses CNN-based feature extractors with no
+fixed-PE-grid constraint, integrates cleanly through Ultralytics' YOLO()
+auto-detection (returns RTDETR class), and trains at 1280 with no resolution
+constraints. Validated end-to-end via 5-epoch extpilot on placeholder data:
+159s runtime, 11.8GB peak VRAM.
+
+**Per-detector fixed batch sizes (rejecting auto-batch):** Auto-batch picks
+the largest batch that fits at run launch, depending on transient VRAM
+state. This produces seed-to-seed batch-size variance that contaminates
+the comparison — different effective batch sizes mean different gradient
+noise, effective learning rate, and convergence dynamics. Q1-venue
+reviewers will flag this. We use fixed per-detector batch sizes,
+documented in the methods section:
+
+| Detector | Batch | Rationale |
+|---|---|---|
+| YOLOv9-m | 8 | extpilot 16GB/batch=4 → 10.5GB peak; fits 32GB at batch=8 |
+| YOLOv10-m | 8 | extpilot 16GB/batch=4 → 11.2GB peak; fits 32GB at batch=8 |
+| YOLO11-m | 8 | extpilot 16GB/batch=8 → 21GB peak (spillover); fits 32GB |
+| YOLO12-m | **4** | area-attention OOMs at batch=8 even on 16GB; batch=4 → 22GB peak |
+| YOLO26-m | 8 | extpilot 16GB/batch=4 → 12.5GB peak; fits 32GB at batch=8 |
+| RT-DETR-L | 8 | extpilot 16GB/batch=4 → 11.8GB peak; fits 32GB at batch=8 |
+
+YOLO12-m is the methodologically uncomfortable case — its area-attention
+operator is materially more memory-hungry than the other variants. Two
+options were considered:
+
+1. Drop YOLO12-m's batch to 4 across the benchmark, keep all others at 8.
+   *Confound:* batch-size becomes part of the architecture comparison.
+2. Drop ALL detectors to batch=4 to match.
+   *Cost:* slower training, smaller effective batch, may underperform what
+   each detector can do at its native batch.
+
+We chose (1) and disclose the asymmetry explicitly in the methods. The
+gradient-noise difference between batch=4 and batch=8 is small relative to
+the architecture differences, and seed-averaging (5 seeds) absorbs much of
+the residual variance.
+
+**Hardware target and cost estimate:** Full benchmark on a 32GB rental
+GPU (e.g. RTX 4090, A100-40GB, L40):
+- 6 detectors × 5 seeds = 30 training runs
+- Estimated 45–60 GPU-hours total (per-detector estimates in
+  `scripts/run_benchmark.py:ROUGH_HOURS_PER_RUN`)
+- Approximate cost: $80–$100 at typical rental rates ($1.5–2/hour for 32GB)
+
+**RF-DETR wrapper retained:** `src/detectors/rfdetr_wrapper.py` is
+unchanged and unused in Stage 1; kept for potential future research with
+either upstream RF-DETR fixes (issue #497) or a custom PE-interpolation
+training pipeline.
+---
+

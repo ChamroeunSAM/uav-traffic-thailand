@@ -49,17 +49,20 @@ from utils.logging import configure_logging  # noqa: E402
 logger = logging.getLogger("run_benchmark")
 
 CONFIG_DIR = PROJECT_ROOT / "configs" / "detectors"
-ALL_DETECTORS = ("yolo11m", "yolo12m", "yolo26m", "rfdetr_m")
+ALL_DETECTORS = ("yolov9m", "yolov10m", "yolo11m", "yolo12m", "yolo26m", "rtdetr_l")
 DEFAULT_SEEDS = (0, 1, 2, 3, 4)
 PILOT_CONFIG = "pilot_yolo11n"
 
-# Rough GPU-hour estimates (per-run). Used only for the upfront warning;
-# actual durations replace these in results/stage1/aggregated.csv.
+# Rough GPU-hour estimates (per-run on 32GB benchmark hardware). Used only
+# for the upfront confirmation; actual durations land in
+# results/stage1/aggregated.csv.
 ROUGH_HOURS_PER_RUN = {
-    "yolo11m": 5.0,
-    "yolo12m": 5.5,
-    "yolo26m": 5.5,
-    "rfdetr_m": 8.0,
+    "yolov9m": 1.5,
+    "yolov10m": 1.5,
+    "yolo11m": 2.0,
+    "yolo12m": 3.5,    # smaller batch (4) and area-attention overhead
+    "yolo26m": 1.5,
+    "rtdetr_l": 2.5,
     "pilot_yolo11n": 0.3,
 }
 

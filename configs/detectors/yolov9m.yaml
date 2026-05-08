@@ -1,0 +1,17 @@
+# Full benchmark — YOLOv9-m @ 1280px, 100 epochs (early stop @20).
+# Wang et al. 2024 (PGI + GELAN). Peer-reviewed paper available.
+detector_class: ultralytics
+model_name: yolov9m.pt
+data_yaml: data/splits/dataset.yaml
+epochs: 100
+imgsz: 1280
+batch: 8
+# Fixed batch=8 — fits on 32GB benchmark hardware (verified via extpilot at 16GB/batch=4 → 10.5GB peak).
+# See docs/decision_log.md for per-detector batch-size rationale.
+patience: 20
+seed: 0
+workers: 4
+device: 0
+project: runs/stage1_detectors
+name: yolov9m_seed{seed}
+notes: "Full benchmark — YOLOv9-m, 5 seeds (0..4), cosine LR, native augs."

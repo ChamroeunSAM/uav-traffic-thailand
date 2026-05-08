@@ -6,8 +6,9 @@ data_yaml: data/splits/dataset.yaml
 epochs: 100
 imgsz: 1280
 batch: 8
-# Fixed batch size for fair cross-detector comparison.
-# See docs/decision_log.md for rationale.
+# Fixed batch=8 — fits on 32GB benchmark hardware (extpilot peaked 21.4GB on 16GB
+# via shared-memory spillover, confirming ~21GB working set; well within 32GB).
+# See docs/decision_log.md for per-detector batch-size rationale.
 patience: 20
 seed: 0
 workers: 4
