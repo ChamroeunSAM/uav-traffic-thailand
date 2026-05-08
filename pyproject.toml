@@ -1,0 +1,14 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "uav-traffic-thailand"
+version = "0.0.1"
+description = "Vehicle detection and tracking from UAV traffic video over Thailand."
+requires-python = ">=3.10"
+# TODO: add dependencies (ultralytics, torch, opencv-python, lap, motmetrics, sahi, ...)
+dependencies = []
+
+[tool.setuptools.packages.find]
+where = ["src"]

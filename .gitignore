@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.Python
+*.egg-info/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Project-specific: large data and model artifacts.
+# Use /data/* (not /data/) so we can re-include data/calibration/ below — git
+# won't descend into a directory that is itself ignored.
+/data/*
+/runs/
+*.pt
+*.pth
+*.onnx
+*.engine
+wandb/
+mlruns/
+.env
+
+# Keep the calibration directory and its .gitkeep marker tracked.
+!/data/calibration/
+!/data/calibration/.gitkeep

@@ -1,0 +1,2 @@
+# YOLOv11 + SAHI sliced inference configuration.
+# TODO: base model, slice size, overlap ratios, postprocess settings.
