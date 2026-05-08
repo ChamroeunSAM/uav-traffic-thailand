@@ -1,0 +1,17 @@
+# Full benchmark — YOLO11-medium @ 1280px, 100 epochs (early stop @20).
+# `name` carries a {seed} placeholder filled in by run_benchmark.py.
+detector_class: ultralytics
+model_name: yolo11m.pt
+data_yaml: data/splits/dataset.yaml
+epochs: 100
+imgsz: 1280
+batch: 8
+# Fixed batch size for fair cross-detector comparison.
+# See docs/decision_log.md for rationale.
+patience: 20
+seed: 0
+workers: 4
+device: 0
+project: runs/stage1_detectors
+name: yolo11m_seed{seed}
+notes: "Full benchmark — YOLO11-m, 5 seeds (0..4), cosine LR, native augs."

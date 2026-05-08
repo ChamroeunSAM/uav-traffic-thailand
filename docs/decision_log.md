@@ -84,3 +84,21 @@ succeed. Full GPU verification (Step 9 of environment setup) passed cleanly.
 the regex version is already locked at 2026.4.4. No additional steps needed.
 ---
 
+## 2026-05-08 — Fixed batch size for benchmark comparability
+
+**Decision:** Use fixed batch sizes (YOLO-m: 8, RF-DETR-m: 4) for all
+benchmark training runs, not auto-batch (`batch=-1`).
+
+**Rationale:** Auto-batch produces different effective batch sizes across
+runs depending on system VRAM availability at the moment of detection.
+Different batch sizes affect gradient noise, effective learning rate, and
+convergence dynamics, which contaminates cross-detector comparison. Fixed
+batch sizes ensure that performance differences between detectors reflect
+the detectors themselves, not stochastic batch-size variation.
+
+**Trade-off:** Slightly slower per-run training time. Acceptable.
+
+**Pilot exception:** The pilot config uses `batch: -1` (auto) for speed.
+Pilot results are not used in the benchmark — only for pipeline validation.
+---
+

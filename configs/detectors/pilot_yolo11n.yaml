@@ -1,0 +1,15 @@
+# Pilot run — validates the Stage 1 pipeline end-to-end before we commit to
+# the full ~100 GPU-hour benchmark. YOLO11-nano @ 640px, 20 epochs, single seed.
+detector_class: ultralytics
+model_name: yolo11n.pt
+data_yaml: data/splits/dataset.yaml
+epochs: 20
+imgsz: 640
+batch: -1  # auto-batch — pilot prioritises speed, not cross-detector comparability
+patience: 10
+seed: 42
+workers: 4
+device: 0
+project: runs/stage1_detectors
+name: pilot_yolo11n_seed42
+notes: "Pilot run to validate pipeline end-to-end (small model, low res, 1 seed)."
