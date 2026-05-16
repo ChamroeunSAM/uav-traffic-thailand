@@ -23,7 +23,15 @@ class UltralyticsWrapper(DetectorWrapper):
 
     def __init__(self, config: dict[str, Any]) -> None:
         super().__init__(config)
-        from ultralytics import YOLO
+        from ultralytics import YOLO, settings as ul_settings
+
+        # Ultralytics' MLflow callback crashes on Windows when its tracking URI
+        # is a bare path like `C:\...\runs\mlflow` (mlflow parses `C` as an
+        # unknown URI scheme). We don't use MLflow in this project, so disable
+        # the callback via the settings API. .update() persists to the user
+        # settings file too, so the fix is idempotent across machines.
+        if ul_settings.get("mlflow", False):
+            ul_settings.update({"mlflow": False})
 
         self._YOLO = YOLO
         model_name = config["model_name"]

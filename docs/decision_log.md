@@ -176,3 +176,51 @@ either upstream RF-DETR fixes (issue #497) or a custom PE-interpolation
 training pipeline.
 ---
 
+## 2026-05-16 — New PC (RTX 5090) validation + YOLO12m batch ceiling confirmed
+
+**Context.** Project transferred to RTX 5090 build (32 GB VRAM) to
+resolve the YOLO12m VRAM spillover constraint observed on 16 GB hardware.
+
+**Pipeline validation.** Full train + stratified eval pipeline validated
+end-to-end on placeholder data on the new hardware. YOLO12m at
+`imgsz=1280`, `batch=4` peaks at 22.1 GB on the 5090 with no spillover,
+~10 s/epoch (vs ~13 min/epoch on the old 16 GB PC — the spillover
+bottleneck that drove the hardware upgrade is resolved for the batch=4
+configuration).
+
+**Empirical batch=8 ceiling test for YOLO12m.** Directly tested whether
+YOLO12m could be standardized to `batch=8` (matching the other five
+detectors) on the 32 GB hardware. Result: `batch=8` at `imgsz=1280`
+peaks at **43.6 GB** — exceeding the 5090's ~31.8 GB physical VRAM by
+~12 GB, forcing hard spillover into shared system memory and ~40×
+per-epoch slowdown (395 s vs 10 s).
+
+**Conclusion.** YOLO12m's `batch=4` setting is an intrinsic constraint of
+its area-attention operator at 1280 resolution, not a small-GPU
+artifact. Batch=8 does not physically fit on 32 GB hardware. The
+asymmetric batch-size design (YOLO12m=4, all others=8) is empirically
+justified. Training YOLO12m at batch=4 ensures its results are free of
+memory-spillover artifacts — a fairer representation of its detection
+capability than forcing batch=8 would be.
+
+**Methods-section framing.** State the 43.6 GB measurement explicitly.
+The asymmetry preempts reviewer questions with data rather than
+defending an arbitrary choice.
+
+**Other transfer-hardening fixes (this commit).**
+- Ultralytics MLflow callback disabled programmatically in
+  `src/detectors/ultralytics_wrapper.py` (the prior fix was a
+  machine-local `Ultralytics/settings.json` edit; it crashes on Windows
+  paths and we don't use MLflow in this project).
+- `scripts/setup_environment.ps1` uses `pip install --no-deps -r
+  requirements.lock.txt` (fully-resolved lock; avoids re-litigating the
+  boxmot/regex resolver conflict).
+- `docs/machine_transfer.md` added with the validated transfer
+  checklist; flags that splits must be regenerated with `--force` after
+  transfer because the generated `dataset.yaml` contains absolute paths.
+
+**Benchmark implication.** Full 6-detector × 5-seed benchmark runs
+locally on owned 5090, free, well under a day of compute once real
+annotations arrive. No GPU rental needed.
+---
+
