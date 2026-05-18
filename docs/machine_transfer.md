@@ -13,7 +13,7 @@ boxes). Order matters.
 
 2. **Manually copy source annotations**
 
-   Copy the Roboflow exports under `data/annotations/90m/` and
+   Copy the Roboflow exports under `data/annotations/100m/` and
    `data/annotations/120m/` from the source machine. These are the *only*
    data assets that must travel by hand — everything else under `data/`
    is regenerable.
@@ -54,7 +54,7 @@ boxes). Order matters.
    ```
 
    On healthy hardware, training completes in well under two minutes
-   and `eval_results.json` is written with stratified `overall / 90m /
+   and `eval_results.json` is written with stratified `overall / 100m /
    120m` blocks. Any failure here means the environment is wrong, not
    the methodology.
 

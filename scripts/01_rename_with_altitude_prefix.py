@@ -1,4 +1,4 @@
-"""Prefix image and label files in data/annotations/{90m,120m} with altitude tags.
+"""Prefix image and label files in data/annotations/{100m,120m} with altitude tags.
 
 Roboflow exports drop matching basenames into per-altitude folders. To merge them
 into a combined dataset later, every filename needs to carry its altitude so we
@@ -19,7 +19,7 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-ALTITUDES = ("90m", "120m")
+ALTITUDES = ("100m", "120m")
 SPLITS = ("train", "valid", "test")
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
 LABEL_EXT = ".txt"

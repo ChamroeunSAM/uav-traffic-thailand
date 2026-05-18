@@ -1,8 +1,8 @@
-"""Merge 90m and 120m YOLOv8 exports into a unified train/val/test dataset.
+"""Merge 100m and 120m YOLOv8 exports into a unified train/val/test dataset.
 
 Source layout (already prefixed by 01_rename_with_altitude_prefix.py):
-    data/annotations/{90m,120m}/{train,valid,test}/{images,labels}
-    data/annotations/{90m,120m}/data.yaml
+    data/annotations/{100m,120m}/{train,valid,test}/{images,labels}
+    data/annotations/{100m,120m}/data.yaml
 
 Output:
     data/annotations/merged/{train,val,test}/{images,labels}   (val, not valid)
@@ -42,7 +42,7 @@ LOW_TRAIN_THRESHOLD = 50
 
 NOTES = (
     "Combined-altitude training (Decision D2). Frames extracted from continuous "
-    "UAV recordings at 90 m and 120 m above ground. Class IDs are reconciled to "
+    "UAV recordings at 100 m and 120 m above ground. Class IDs are reconciled to "
     "a unified namespace; per-altitude provenance preserved in altitude_index.json "
     "for stratified evaluation."
 )
@@ -129,33 +129,33 @@ def verify_source(altitude: str, src_root: Path) -> dict:
 
 
 def reconcile_classes(
-    names_90m: list[str], names_120m: list[str]
+    names_100m: list[str], names_120m: list[str]
 ) -> tuple[list[str], dict[int, int], dict[int, int]]:
-    """Return (unified_names, remap_90m, remap_120m). Identity remap if equal."""
-    if names_90m == names_120m:
-        identity = {i: i for i in range(len(names_90m))}
+    """Return (unified_names, remap_100m, remap_120m). Identity remap if equal."""
+    if names_100m == names_120m:
+        identity = {i: i for i in range(len(names_100m))}
         logging.info(
             "Class lists identical across altitudes (%d classes): %s",
-            len(names_90m), names_90m,
+            len(names_100m), names_100m,
         )
-        return list(names_90m), identity, identity
+        return list(names_100m), identity, identity
 
-    unified = list(names_90m)
+    unified = list(names_100m)
     for n in names_120m:
         if n not in unified:
             unified.append(n)
-    remap_90m = {i: unified.index(n) for i, n in enumerate(names_90m)}
+    remap_100m = {i: unified.index(n) for i, n in enumerate(names_100m)}
     remap_120m = {i: unified.index(n) for i, n in enumerate(names_120m)}
     logging.warning(
         "Class lists differ — building unified namespace.\n"
-        "  90m:     %s\n"
+        "  100m:     %s\n"
         "  120m:    %s\n"
         "  unified: %s\n"
-        "  remap_90m:  %s\n"
+        "  remap_100m:  %s\n"
         "  remap_120m: %s",
-        names_90m, names_120m, unified, remap_90m, remap_120m,
+        names_100m, names_120m, unified, remap_100m, remap_120m,
     )
-    return unified, remap_90m, remap_120m
+    return unified, remap_100m, remap_120m
 
 
 def copy_label_with_remap(
@@ -258,22 +258,22 @@ def write_altitude_index(filenames_by_split_alt: dict) -> Path:
 
 
 def write_split_metadata(
-    src_90m: Path,
+    src_100m: Path,
     src_120m: Path,
     class_names: list[str],
-    remap_90m: dict[int, int],
+    remap_100m: dict[int, int],
     remap_120m: dict[int, int],
     counts_by_split_alt: dict[tuple[str, str], Counter],
     image_counts_by_split_alt: dict[tuple[str, str], int],
 ) -> Path:
     SPLITS_DIR.mkdir(parents=True, exist_ok=True)
-    is_identity_90m = all(k == v for k, v in remap_90m.items())
+    is_identity_100m = all(k == v for k, v in remap_100m.items())
     is_identity_120m = all(k == v for k, v in remap_120m.items())
 
     split_counts: dict[str, dict] = {}
     for dst_split in ("train", "val", "test"):
         per_alt = {}
-        for altitude in ("90m", "120m"):
+        for altitude in ("100m", "120m"):
             counts = counts_by_split_alt.get((dst_split, altitude), Counter())
             per_alt[altitude] = {
                 "images": image_counts_by_split_alt.get((dst_split, altitude), 0),
@@ -289,13 +289,13 @@ def write_split_metadata(
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "project_root": str(PROJECT_ROOT.resolve()),
         "sources": {
-            "90m": str(src_90m.resolve()),
+            "100m": str(src_100m.resolve()),
             "120m": str(src_120m.resolve()),
         },
         "merged_root": str(MERGED_ROOT.resolve()),
         "class_names": list(class_names),
-        "class_remap_90m": (
-            "identity" if is_identity_90m else {str(k): v for k, v in remap_90m.items()}
+        "class_remap_100m": (
+            "identity" if is_identity_100m else {str(k): v for k, v in remap_100m.items()}
         ),
         "class_remap_120m": (
             "identity" if is_identity_120m else {str(k): v for k, v in remap_120m.items()}
@@ -320,10 +320,10 @@ def print_summary(
     print("=" * 72)
 
     print("Per-split image counts:")
-    print(f"  {'Split':<8}{'90m':>8}{'120m':>8}{'Total':>8}")
+    print(f"  {'Split':<8}{'100m':>8}{'120m':>8}{'Total':>8}")
     grand_imgs = 0
     for split in ("train", "val", "test"):
-        a = image_counts_by_split_alt.get((split, "90m"), 0)
+        a = image_counts_by_split_alt.get((split, "100m"), 0)
         b = image_counts_by_split_alt.get((split, "120m"), 0)
         grand_imgs += a + b
         print(f"  {split:<8}{a:>8}{b:>8}{a + b:>8}")
@@ -331,10 +331,10 @@ def print_summary(
 
     print()
     print("Per-split object counts:")
-    print(f"  {'Split':<8}{'90m':>8}{'120m':>8}{'Total':>8}")
+    print(f"  {'Split':<8}{'100m':>8}{'120m':>8}{'Total':>8}")
     grand_objs = 0
     for split in ("train", "val", "test"):
-        a = sum(counts_by_split_alt.get((split, "90m"), Counter()).values())
+        a = sum(counts_by_split_alt.get((split, "100m"), Counter()).values())
         b = sum(counts_by_split_alt.get((split, "120m"), Counter()).values())
         grand_objs += a + b
         print(f"  {split:<8}{a:>8}{b:>8}{a + b:>8}")
@@ -350,7 +350,7 @@ def print_summary(
         for split in ("train", "val", "test"):
             n = sum(
                 counts_by_split_alt.get((split, alt), Counter()).get(cid, 0)
-                for alt in ("90m", "120m")
+                for alt in ("100m", "120m")
             )
             per_split[split] = n
         status_tags = []
@@ -382,8 +382,8 @@ def print_summary(
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--export-90m", default="90m",
-                        help="Folder name under data/annotations/ for 90m export.")
+    parser.add_argument("--export-100m", default="100m",
+                        help="Folder name under data/annotations/ for 100m export.")
     parser.add_argument("--export-120m", default="120m",
                         help="Folder name under data/annotations/ for 120m export.")
     parser.add_argument("--force", action="store_true",
@@ -396,10 +396,10 @@ def main() -> int:
         datefmt="%H:%M:%S",
     )
 
-    src_90m = ANNOT_ROOT / args.export_90m
+    src_100m = ANNOT_ROOT / args.export_100m
     src_120m = ANNOT_ROOT / args.export_120m
     logging.info("Project root: %s", PROJECT_ROOT)
-    logging.info("Source 90m:  %s", src_90m)
+    logging.info("Source 100m:  %s", src_100m)
     logging.info("Source 120m: %s", src_120m)
     logging.info("Merged out:  %s", MERGED_ROOT)
 
@@ -413,25 +413,25 @@ def main() -> int:
         logging.warning("Removing existing merged/ (--force).")
         shutil.rmtree(MERGED_ROOT)
 
-    info_90m = verify_source("90m", src_90m)
+    info_100m = verify_source("100m", src_100m)
     info_120m = verify_source("120m", src_120m)
 
-    class_names, remap_90m, remap_120m = reconcile_classes(
-        info_90m["class_names"], info_120m["class_names"],
+    class_names, remap_100m, remap_120m = reconcile_classes(
+        info_100m["class_names"], info_120m["class_names"],
     )
     num_classes = len(class_names)
 
     filenames_by_split_alt: dict[str, dict[str, list[str]]] = defaultdict(
-        lambda: {"90m": [], "120m": []}
+        lambda: {"100m": [], "120m": []}
     )
     counts_by_split_alt: dict[tuple[str, str], Counter] = {}
     image_counts_by_split_alt: dict[tuple[str, str], int] = {}
 
     for altitude, info, remap in (
-        ("90m", info_90m, remap_90m),
+        ("100m", info_100m, remap_100m),
         ("120m", info_120m, remap_120m),
     ):
-        src_root = src_90m if altitude == "90m" else src_120m
+        src_root = src_100m if altitude == "100m" else src_120m
         for src_split in SRC_SPLITS:
             dst_split = DST_SPLIT_FOR[src_split]
             pairs = info["pairs_per_split"][src_split]
@@ -445,7 +445,7 @@ def main() -> int:
     yaml_path = write_dataset_yaml(class_names)
     idx_path = write_altitude_index(dict(filenames_by_split_alt))
     meta_path = write_split_metadata(
-        src_90m, src_120m, class_names, remap_90m, remap_120m,
+        src_100m, src_120m, class_names, remap_100m, remap_120m,
         counts_by_split_alt, image_counts_by_split_alt,
     )
     logging.info("Wrote %s", yaml_path)

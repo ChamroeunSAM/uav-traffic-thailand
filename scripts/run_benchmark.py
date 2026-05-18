@@ -130,7 +130,7 @@ def aggregate_runs(csv_path: Path, out_path: Path) -> None:
 
     metric_cols = [
         "overall_mAP50", "overall_mAP50_95",
-        "90m_mAP50", "90m_mAP50_95",
+        "100m_mAP50", "100m_mAP50_95",
         "120m_mAP50", "120m_mAP50_95",
     ]
     grouped: dict[str, list[dict]] = defaultdict(list)

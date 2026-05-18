@@ -224,3 +224,29 @@ locally on owned 5090, free, well under a day of compute once real
 annotations arrive. No GPU rental needed.
 ---
 
+## 2026-05-18 — Altitude correction: "90m" was actually 100m
+
+**Issue:** Team communication clarified that UAV footage labeled "90m"
+throughout the project was in fact collected at 100m altitude. The 120m
+height is confirmed correct and unchanged.
+
+**Scope of correction:** All forward-looking references updated 90m →
+100m: source data folder (data/annotations/90m → 100m), file prefixes
+(90m_ → 100m_), parsing/eval/benchmark scripts, configs (dataset_90m.yaml
+→ dataset_100m.yaml), and forward-looking docs. Generated artifacts
+(merged/, splits/) regenerated from corrected source.
+
+**Historical record preserved:** Earlier decision-log entries and all
+prior git commit messages retain "90m" as an accurate record of the
+project's understanding at the time. They are deliberately NOT rewritten.
+This entry documents the correction; the prior naming was an internal
+labeling error, not a data-collection error — the footage itself is
+valid, only its altitude label was wrong.
+
+**Action items outside this commit:**
+- methodology.docx must be manually updated by the author (Word doc,
+  not edited programmatically)
+- Real annotations, when they arrive, will use the correct 100m_ prefix
+  via the updated 01_rename_with_altitude_prefix.py
+---
+

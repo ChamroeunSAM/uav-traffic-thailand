@@ -1,4 +1,4 @@
-"""Evaluate ONE trained detector with overall / 90m / 120m stratified mAP.
+"""Evaluate ONE trained detector with overall / 100m / 120m stratified mAP.
 
 Usage
 -----
@@ -10,7 +10,7 @@ We do test-set inference once and compute three mAP breakdowns from the same
 prediction set, sliced by image filename prefix using altitude_index.json:
 
   * overall  — all test images
-  * 90m      — only images listed under data/splits/altitude_index.json[test][90m]
+  * 100m      — only images listed under data/splits/altitude_index.json[test][100m]
   * 120m     — only images listed under data/splits/altitude_index.json[test][120m]
 
 Per-class metrics are reported alongside the aggregate. We use
@@ -25,12 +25,12 @@ Outputs
 
         {
           "overall": {"mAP50": ..., "mAP50_95": ..., "precision": NaN, "recall": NaN},
-          "90m":     {"mAP50": ..., "mAP50_95": ..., "precision": NaN, "recall": NaN},
+          "100m":     {"mAP50": ..., "mAP50_95": ..., "precision": NaN, "recall": NaN},
           "120m":    {"mAP50": ..., "mAP50_95": ..., "precision": NaN, "recall": NaN},
           "per_class": {
             "<class_name>": {
               "overall": {"AP50": ..., "AP50_95": ...},
-              "90m":     {"AP50": ..., "AP50_95": ...},
+              "100m":     {"AP50": ..., "AP50_95": ...},
               "120m":    {"AP50": ..., "AP50_95": ...}
             },
             ...
@@ -69,7 +69,7 @@ from utils.logging import configure_logging  # noqa: E402
 
 logger = logging.getLogger("eval_detector")
 
-ALTITUDES = ("90m", "120m")
+ALTITUDES = ("100m", "120m")
 
 
 def parse_args() -> argparse.Namespace:
@@ -228,15 +228,15 @@ def main() -> int:
         splits[alt] = compute_map(sub_pred, sub_tgt, class_names)
 
     # Build the user-facing JSON shape:
-    # {overall, 90m, 120m, per_class: {<class>: {overall, 90m, 120m}}}
+    # {overall, 100m, 120m, per_class: {<class>: {overall, 100m, 120m}}}
     report: dict[str, Any] = {
         "overall": splits["overall"]["aggregate"],
-        "90m": splits["90m"]["aggregate"],
+        "100m": splits["100m"]["aggregate"],
         "120m": splits["120m"]["aggregate"],
         "per_class": {
             name: {
                 "overall": splits["overall"]["per_class"][name],
-                "90m": splits["90m"]["per_class"][name],
+                "100m": splits["100m"]["per_class"][name],
                 "120m": splits["120m"]["per_class"][name],
             }
             for name in class_names
@@ -260,16 +260,16 @@ def main() -> int:
     print()
     print(f"{'split':<10}{'mAP50':>10}{'mAP50_95':>12}")
     print("-" * 32)
-    for split in ("overall", "90m", "120m"):
+    for split in ("overall", "100m", "120m"):
         m = report[split]
         print(f"{split:<10}{m['mAP50']:>10.4f}{m['mAP50_95']:>12.4f}")
     print()
-    header = f"{'class':<14}" + "".join(f"{s:>10}" for s in ("overall", "90m", "120m"))
+    header = f"{'class':<14}" + "".join(f"{s:>10}" for s in ("overall", "100m", "120m"))
     print(header + "   (AP50)")
     print("-" * len(header))
     for name in class_names:
         row = report["per_class"][name]
-        cells = "".join(f"{row[s]['AP50']:>10.4f}" for s in ("overall", "90m", "120m"))
+        cells = "".join(f"{row[s]['AP50']:>10.4f}" for s in ("overall", "100m", "120m"))
         print(f"{name:<14}" + cells)
     print()
     print(f"  eval_results.json : {eval_path}")
@@ -296,7 +296,7 @@ def _append_csv_row(csv_path: Path, config: dict, metrics: dict, weights: Path) 
         "run_name", "detector_class", "model_name", "seed", "imgsz", "epochs",
         "weights_path",
         "overall_mAP50", "overall_mAP50_95",
-        "90m_mAP50", "90m_mAP50_95",
+        "100m_mAP50", "100m_mAP50_95",
         "120m_mAP50", "120m_mAP50_95",
         "evaluated_at",
     ]
@@ -310,8 +310,8 @@ def _append_csv_row(csv_path: Path, config: dict, metrics: dict, weights: Path) 
         "weights_path": str(weights),
         "overall_mAP50": metrics["overall"]["mAP50"],
         "overall_mAP50_95": metrics["overall"]["mAP50_95"],
-        "90m_mAP50": metrics["90m"]["mAP50"],
-        "90m_mAP50_95": metrics["90m"]["mAP50_95"],
+        "100m_mAP50": metrics["100m"]["mAP50"],
+        "100m_mAP50_95": metrics["100m"]["mAP50_95"],
         "120m_mAP50": metrics["120m"]["mAP50"],
         "120m_mAP50_95": metrics["120m"]["mAP50_95"],
         "evaluated_at": datetime.now(timezone.utc).isoformat(),
