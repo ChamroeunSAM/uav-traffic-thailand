@@ -9,6 +9,7 @@ batch: 4
 # with batch=8 OOM'd; batch=4 ran at 22.3GB peak with shared-memory spillover).
 # Even on 32GB, batch=8 would be tight. See docs/decision_log.md.
 patience: 20
+cos_lr: true   # explicit cosine LR schedule (matches methods-section claim)
 seed: 0
 workers: 4
 device: 0

@@ -9,6 +9,7 @@ batch: 8
 # Fixed batch=8 — fits on 32GB benchmark hardware (verified via extpilot at 16GB/batch=4 → 10.5GB peak).
 # See docs/decision_log.md for per-detector batch-size rationale.
 patience: 20
+cos_lr: true   # explicit cosine LR schedule (matches methods-section claim)
 seed: 0
 workers: 4
 device: 0

@@ -9,6 +9,7 @@ batch: 8
 # 12.5GB on 16GB without spillover; batch=8 should fit on 32GB with margin).
 # See docs/decision_log.md for per-detector batch-size rationale.
 patience: 20
+cos_lr: true   # explicit cosine LR schedule (matches methods-section claim)
 seed: 0
 workers: 4
 device: 0
