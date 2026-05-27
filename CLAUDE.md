@@ -361,11 +361,11 @@ authoritative sources:
 Last 5 commits (refresh periodically):
 
 ```
+682850c  Make cos_lr explicit in all six detector configs
+04683e0  Refresh CLAUDE.md §10 Recent Activity
 c47c751  Add CLAUDE.md for AI session context bootstrapping
 5739bb0  Add 00_split_raw_export.py for partitioning raw Roboflow exports
 fef35b8  Add methodology document to version control
-a8fd0a5  Correct altitude labeling: 90m was actually 100m
-84b158a  Harden cross-machine setup; confirm YOLO12m batch ceiling on 32GB
 ```
 
 ## 11. Document Maintenance
