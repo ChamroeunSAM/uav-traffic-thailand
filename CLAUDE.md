@@ -361,11 +361,11 @@ authoritative sources:
 Last 5 commits (refresh periodically):
 
 ```
+c47c751  Add CLAUDE.md for AI session context bootstrapping
+5739bb0  Add 00_split_raw_export.py for partitioning raw Roboflow exports
 fef35b8  Add methodology document to version control
 a8fd0a5  Correct altitude labeling: 90m was actually 100m
 84b158a  Harden cross-machine setup; confirm YOLO12m batch ceiling on 32GB
-9496706  Add .gitattributes for cross-platform line ending normalization
-166e22b  Fix RF-DETR wrapper: dataset path resolution and data.yaml provisioning
 ```
 
 ## 11. Document Maintenance
