@@ -55,6 +55,7 @@ class UltralyticsWrapper(DetectorWrapper):
             "cache": cfg.get("cache", False),
             "verbose": True,
             "cos_lr": cfg.get("cos_lr", True),
+            "fraction": cfg.get("fraction", 1.0),
         }
 
         logger.info("Ultralytics training kwargs: %s", train_kwargs)

@@ -45,6 +45,11 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--config", required=True, type=Path, help="Path to detector YAML config.")
     p.add_argument("--seed", type=int, default=None, help="Override config.seed for this run.")
     p.add_argument("--resume", action="store_true", help="Resume from existing partial run if found.")
+    # Smoke-test / ad-hoc overrides. None = keep config value.
+    p.add_argument("--epochs", type=int, default=None, help="Override config.epochs (e.g. 1 for smoke tests).")
+    p.add_argument("--fraction", type=float, default=None, help="Fraction of dataset (0 < f <= 1) for smoke tests.")
+    p.add_argument("--project", type=str, default=None, help="Override config.project (output root).")
+    p.add_argument("--name", type=str, default=None, help="Override config.name (may omit the {seed} placeholder).")
     return p.parse_args()
 
 
@@ -84,6 +89,14 @@ def main() -> int:
         config["seed"] = args.seed
     if args.resume:
         config["resume"] = True
+    if args.epochs is not None:
+        config["epochs"] = args.epochs
+    if args.fraction is not None:
+        config["fraction"] = args.fraction
+    if args.project is not None:
+        config["project"] = args.project
+    if args.name is not None:
+        config["name"] = args.name
 
     raw_name: str = config["name"]
     config["name"] = raw_name.format(seed=config["seed"])
