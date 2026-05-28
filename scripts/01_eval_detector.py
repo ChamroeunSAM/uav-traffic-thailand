@@ -49,6 +49,7 @@ from __future__ import annotations
 import argparse
 import csv
 import logging
+import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -292,6 +293,14 @@ def _dets_to_sv(dets):
 
 def _append_csv_row(csv_path: Path, config: dict, metrics: dict, weights: Path) -> None:
     csv_path.parent.mkdir(parents=True, exist_ok=True)
+    # The config only holds the unsubstituted name template (e.g.
+    # "yolov9m_seed{seed}") and its default seed. The training script already
+    # baked the real seed into the run directory, so derive both from the
+    # weights path (.../yolov9m_seed3/weights/best.pt) — correct for both
+    # orchestrated and manual eval invocations.
+    run_name = weights.parent.parent.name
+    seed_match = re.search(r"seed(\d+)", run_name)
+    seed = int(seed_match.group(1)) if seed_match else config.get("seed", 0)
     fieldnames = [
         "run_name", "detector_class", "model_name", "seed", "imgsz", "epochs",
         "weights_path",
@@ -301,10 +310,10 @@ def _append_csv_row(csv_path: Path, config: dict, metrics: dict, weights: Path) 
         "evaluated_at",
     ]
     row = {
-        "run_name": config["name"],
+        "run_name": run_name,
         "detector_class": config["detector_class"],
         "model_name": config["model_name"],
-        "seed": config["seed"],
+        "seed": seed,
         "imgsz": config["imgsz"],
         "epochs": config["epochs"],
         "weights_path": str(weights),

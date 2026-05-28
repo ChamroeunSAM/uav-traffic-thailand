@@ -17,6 +17,9 @@ env/
 .idea/
 *.swp
 
+# Claude Code local session state (scheduler lock, etc.)
+.claude/
+
 # OS
 .DS_Store
 Thumbs.db

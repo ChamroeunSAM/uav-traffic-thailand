@@ -75,38 +75,49 @@ class UltralyticsWrapper(DetectorWrapper):
             "run_dir": run_dir,
         }
 
+    # Chunk size for inference. At imgsz=1280, Ultralytics accumulates GPU
+    # tensors across a predict() call; passing all test images at once
+    # (e.g. 451) leaks VRAM until it OOMs. Processing in small chunks and
+    # forcing empty_cache() between them keeps the working set bounded.
+    PREDICT_CHUNK = 16
+
     def predict(self, image_paths: list[Path]) -> list[list[Detection]]:
         if not image_paths:
             return []
 
-        sources = [str(p) for p in image_paths]
-        results = self.model.predict(
-            source=sources,
-            verbose=False,
-            device=self.config.get("device", 0),
-            imgsz=self.config.get("imgsz", 1280),
-            conf=self.config.get("conf_threshold", 0.001),
-            iou=self.config.get("iou_threshold", 0.6),
-            stream=False,
-        )
+        import torch
 
         out: list[list[Detection]] = []
-        for img_path, res in zip(image_paths, results):
-            dets: list[Detection] = []
-            if res.boxes is not None and len(res.boxes) > 0:
-                xyxy = res.boxes.xyxy.cpu().numpy()
-                conf = res.boxes.conf.cpu().numpy()
-                cls = res.boxes.cls.cpu().numpy().astype(int)
-                for (x1, y1, x2, y2), c, k in zip(xyxy, conf, cls):
-                    dets.append(
-                        Detection(
-                            bbox=(float(x1), float(y1), float(x2), float(y2)),
-                            confidence=float(c),
-                            class_id=int(k),
-                            image_path=img_path,
+        for start in range(0, len(image_paths), self.PREDICT_CHUNK):
+            chunk = image_paths[start:start + self.PREDICT_CHUNK]
+            results = self.model.predict(
+                source=[str(p) for p in chunk],
+                verbose=False,
+                device=self.config.get("device", 0),
+                imgsz=self.config.get("imgsz", 1280),
+                conf=self.config.get("conf_threshold", 0.001),
+                iou=self.config.get("iou_threshold", 0.6),
+                stream=False,
+            )
+            for img_path, res in zip(chunk, results):
+                dets: list[Detection] = []
+                if res.boxes is not None and len(res.boxes) > 0:
+                    xyxy = res.boxes.xyxy.cpu().numpy()
+                    conf = res.boxes.conf.cpu().numpy()
+                    cls = res.boxes.cls.cpu().numpy().astype(int)
+                    for (x1, y1, x2, y2), c, k in zip(xyxy, conf, cls):
+                        dets.append(
+                            Detection(
+                                bbox=(float(x1), float(y1), float(x2), float(y2)),
+                                confidence=float(c),
+                                class_id=int(k),
+                                image_path=img_path,
+                            )
                         )
-                    )
-            out.append(dets)
+                out.append(dets)
+            del results
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
         return out
 
     def load_weights(self, weights_path: Path) -> None:
