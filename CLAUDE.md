@@ -12,12 +12,11 @@ locally on an owned RTX 5090 (32 GB) under Windows 11 — no cloud rental.
 
 ## 2. Current Status
 
-5-stage methodology (see §3). **Stage 1 is ready to launch on real
-data:** per-altitude Roboflow exports have been partitioned 70/15/15
-(seed=42) and merged into a unified training-ready dataset at
-`data/annotations/merged/` with `data/splits/dataset.yaml` (3,010
-frames, 194,945 annotated objects, classes `[LV, MV, SV]`). Everything
-beyond Stage 1 is partially scaffolded but unvalidated.
+5-stage methodology (see §3). **Stage 1 is complete — the detector
+benchmark deliverable is in hand.** All six detectors × five seeds (30
+trained models, 30 stratified test evaluations) committed to
+`results/stage1/`. RT-DETR-L wins on every metric; tight three-tier
+separation across the six. Stage 2-4 remain scaffolded but unvalidated.
 
 - [x] Stage 0: data-preparation pipeline
       (`00_split_raw_export.py` → `01_rename_with_altitude_prefix.py`
@@ -29,16 +28,29 @@ beyond Stage 1 is partially scaffolded but unvalidated.
       (train=2107 / val=452 / test=451; seed=42), all files
       altitude-prefixed for provenance via `altitude_index.json`.
       Class distribution is heavily imbalanced: LV ≈ 2% of objects,
-      MV ≈ 57%, SV ≈ 41% — flag this when interpreting per-class mAP
-- [x] Stage 1: training + stratified-eval pipeline
+      MV ≈ 57%, SV ≈ 41% — but the full-data 100-epoch training
+      learned LV cleanly (AP50 ≈ 0.95); the imbalance worry was
+      overblown
+- [x] **Stage 1 detector benchmark complete (5 seeds × 6 detectors,
+      ~58 GPU-hours wall-clock).** Final ranking by overall mAP50 /
+      mAP50-95 on the stratified test set:
+        1. RT-DETR-L  0.9628 / 0.8747
+        2. YOLO26-m   0.9545 / 0.8635
+        3. YOLOv10-m  0.9514 / 0.8563
+        4. YOLO11-m   0.9319 / 0.8399
+        5. YOLO12-m   0.9312 / 0.8372
+        6. YOLOv9-m   0.9300 / 0.8335
+      Std across seeds ≤ 0.002 everywhere — ranking is stable.
+      100 m beats 120 m by ~1.5-2 pts mAP50 universally
+- [x] Stage 1 pipeline + supporting infrastructure
       (`01_train_detector.py`, `01_eval_detector.py`,
-      `run_benchmark.py`) validated on placeholder data — six
-      detectors × five seeds = 30 runs, ready to launch on real data
-      now
+      `run_benchmark.py`); chunked-prediction OOM fix landed during
+      yolov9m recovery
 - [x] Environment locked (`requirements.lock.txt`, torch 2.11.0+cu128)
       and cross-machine setup hardened (`docs/machine_transfer.md`)
 - [x] YOLO12m batch=4 ceiling confirmed empirically on 32 GB hardware
-      (43.6 GB peak at batch=8 — physically does not fit)
+      (43.6 GB peak at batch=8 — physically does not fit); 22.3 GB
+      peak at batch=4 confirmed in the full benchmark run
 - [x] Altitude relabel (90 m → 100 m) propagated to forward-looking
       scripts, configs, and docs; historical commits/decision-log
       entries preserved as written
@@ -52,15 +64,25 @@ beyond Stage 1 is partially scaffolded but unvalidated.
       committed (`configs/trackers/*.yaml`); not yet exercised
 - [in progress] Trajectory utilities scaffolded
       (`src/trajectory/{calibration, kinematics, smoothing}.py`)
-- [ ] Stage 1 full benchmark run (~30 hours wall-clock; data + pipeline
-      both ready — next action is `python scripts/run_benchmark.py`)
+- [ ] Push the 13 unpushed commits to `origin/master` (back up the
+      benchmark off the local machine)
+- [ ] Per-class mean/std aggregation — `aggregate_runs()` currently
+      reports overall + 100m/120m only; per-class numbers live in
+      each `runs/stage1_detectors/<run>/eval_results.json` and need a
+      cross-seed roll-up for the paper's class-difficulty table
+- [ ] Stage 2 kickoff: pseudo-track generation from the winning
+      detector (RT-DETR-L) for tracker ground-truth construction
 - [ ] Stage 2-4 execution
 - [ ] `docs/annotation_guide.md` — currently a one-line TODO stub
 - [ ] `docs/methodology.docx` — author must manually sync to current
-      decision log (Word doc, not edited programmatically)
+      decision log + add the final 6-detector results table
 
-The immediate next action is launching the Stage 1 detector sweep.
-Data, configs, and pipeline are all in place.
+**Observed during Stage 1 (worth noting for future long runs on this
+machine):** occasional transient GPU faults under sustained day-long
+load — `CUDA error: unknown error` killed yolo11m seed 3 at epoch 58
+(recovered cleanly via `--seeds 3` re-run); mid-run wall-clock
+slowdowns (~37% on rtdetr_l seeds 1-3) that self-recovered. None
+affected training correctness, but exposure scales with run length.
 
 ## 3. Five-Stage Methodology
 
@@ -361,16 +383,16 @@ authoritative sources:
 Last 5 commits (refresh periodically):
 
 ```
-682850c  Make cos_lr explicit in all six detector configs
-04683e0  Refresh CLAUDE.md §10 Recent Activity
-c47c751  Add CLAUDE.md for AI session context bootstrapping
-5739bb0  Add 00_split_raw_export.py for partitioning raw Roboflow exports
-fef35b8  Add methodology document to version control
+c4cd8e1  Add RT-DETR-L Stage 1 benchmark results -- Stage 1 complete
+ec59852  Add YOLO26-m Stage 1 benchmark results (5 seeds)
+81e5ee2  Add YOLO12-m Stage 1 benchmark results (5 seeds)
+9394914  Add YOLO11-m Stage 1 benchmark results (5 seeds)
+47c9e79  Add YOLOv10-m Stage 1 benchmark results (5 seeds)
 ```
 
 ## 11. Document Maintenance
 
-Last refreshed: **2026-05-27**
+Last refreshed: **2026-05-31**
 
 If today is more than one month past that date, sections 2 (Current
 Status) and 10 (Recent Activity) may be stale. Other sections are more
