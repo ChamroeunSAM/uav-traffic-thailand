@@ -64,8 +64,8 @@ separation across the six. Stage 2-4 remain scaffolded but unvalidated.
       committed (`configs/trackers/*.yaml`); not yet exercised
 - [in progress] Trajectory utilities scaffolded
       (`src/trajectory/{calibration, kinematics, smoothing}.py`)
-- [ ] Push the 13 unpushed commits to `origin/master` (back up the
-      benchmark off the local machine)
+- [x] Stage 1 benchmark commits pushed to `origin/master` (the
+      benchmark is now backed up off the local machine)
 - [ ] Per-class mean/std aggregation — `aggregate_runs()` currently
       reports overall + 100m/120m only; per-class numbers live in
       each `runs/stage1_detectors/<run>/eval_results.json` and need a
@@ -392,7 +392,7 @@ ec59852  Add YOLO26-m Stage 1 benchmark results (5 seeds)
 
 ## 11. Document Maintenance
 
-Last refreshed: **2026-05-31**
+Last refreshed: **2026-06-02**
 
 If today is more than one month past that date, sections 2 (Current
 Status) and 10 (Recent Activity) may be stale. Other sections are more
