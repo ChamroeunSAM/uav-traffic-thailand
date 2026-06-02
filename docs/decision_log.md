@@ -250,3 +250,88 @@ valid, only its altitude label was wrong.
   via the updated 01_rename_with_altitude_prefix.py
 ---
 
+## D3 — Stage 3 framing: dual evaluation (raw + post-linker) with fallback to single end-to-end
+
+**Date:** 2026-06-02
+**Status:** Accepted (primary path: dual evaluation; fallback path: single
+end-to-end), pending a mini-experiment safety check before committing the
+full Stage 3 compute.
+
+**Decision.** Stage 3 will evaluate each of the four trackers (ByteTrack,
+BoT-SORT, OC-SORT, Deep OC-SORT) *twice* against the Stage 2 ground truth:
+
+1. **Raw tracker output** → HOTA / MOTA / IDF1. Provides comparability
+   with the mainstream MOT literature, which uniformly reports raw-output
+   metrics.
+2. **Tracker + linker output** (overlap-merge + gap-link + per-frame dedup
+   from `scripts/02b_link_tracks.py`) → same metrics. Provides relevance
+   to the offline trajectory analysis that Paper 1 (Stage 4) and Paper 2
+   actually need.
+
+The gap between the two columns is itself a paper finding: it quantifies
+the linker's contribution and identifies which tracker is the cleanest
+*feedstock* for offline pipelines.
+
+**Reasoning.**
+- The traditional MOT benchmarks optimize for *online* tracker performance,
+  which matters for autonomous driving and live surveillance. For Paper 1's
+  *offline* trajectory analysis use case, post-processing matters at least
+  as much as raw association quality.
+- Reporting only raw metrics would obscure the linker contribution
+  (which is a substantive Stage 2 methodological output) and would make
+  the paper's tracker recommendations misleading for traffic-engineering
+  practitioners who *will* post-process.
+- Reporting only post-linker metrics would lose comparability with the
+  MOT literature and would force reviewers to take the linker on faith.
+- The dual evaluation is roughly twice the compute, which is negligible
+  in absolute terms (well under one wall-clock hour for all 4 trackers ×
+  4 clips on the 5090).
+
+**Safety net — mini-experiment before full commit.** Before the full
+4-tracker × 4-clip benchmark is run, a single-clip mini-experiment
+(120_m_DJI_0006_1min, the moderate-density roundabout) will measure raw
+and post-linker IDF1 for all four trackers. Decision rule:
+
+- **If the post-linker spread stays wide** (e.g., raw 0.55–0.75 → linked
+  0.65–0.85), the dual evaluation is informative and Stage 3 proceeds as
+  planned (Option B).
+- **If the post-linker spread compresses heavily** (e.g., raw 0.55–0.75 →
+  linked 0.85–0.90), the tracker choice barely matters post-processing.
+  Paper 1 then drops the comparative tracker benchmark entirely and uses
+  a single end-to-end evaluation (one tracker — likely ByteTrack — plus
+  linker, evaluated once against GT). The Paper 1 narrative shifts to
+  position the linker and the Stage 4 trajectory framework as the
+  headline contributions (Option A as fallback).
+
+The fallback path was prepared because the post-linker quality may be
+dominated by the linker rather than by the input tracker, in which case
+the comparative benchmark adds little value.
+
+**Inter-annotator validation explicitly dropped.** Per the same
+discussion that produced this decision: §8 of `docs/stage2_annotation_protocol.md`
+(original draft) called for a second annotator on one clip to establish
+an IDF1 ceiling. That section was removed on the grounds that the
+top-down UAV view at 100-120 m minimizes the perspective-induced
+annotation ambiguity that typically motivates such checks in MOT17 /
+MOT20-style ground-level benchmarks. A short Limitations paragraph in
+the paper will note this choice for reviewers.
+
+**Trade-offs.**
+- Doubles Stage 3 evaluation compute (negligible in absolute terms).
+- Forces the paper to explain two metrics with two slightly different
+  narratives ("real-time online tracking" vs "offline trajectory
+  pipeline"). Cleanly framable but adds a paragraph of methodological
+  exposition.
+- The fallback path means the paper's structure is not fully locked
+  until the mini-experiment runs. Acceptable because the mini-experiment
+  is cheap (~30 minutes) and yields a clear go/no-go signal.
+
+**Action items.**
+- Build TrackEval-based evaluation harness (HOTA / MOTA / IDF1) that
+  reads MOT-format predictions + GT.
+- Run mini-experiment on 120_m_DJI_0006_1min before the full Stage 3
+  benchmark commits.
+- After mini-experiment, lock Paper 1 framing (Option A or B) and update
+  CLAUDE.md §3 accordingly.
+---
+
