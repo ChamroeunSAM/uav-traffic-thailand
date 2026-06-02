@@ -1,2 +1,49 @@
-# ByteTrack tracker configuration.
-# TODO: track_thresh, match_thresh, track_buffer, frame_rate.
+# ByteTrack config for Stage 2 pseudo-track generation.
+#
+# Tuned for high-recall pseudo-labeling on top-down UAV traffic imagery at
+# 1280x1280 inference resolution, 29.97 fps source footage.
+#
+# Design intent: maximize recall of candidate tracks so a human annotator
+# corrects in CVAT by *deleting* false-positive tracks (one click per track)
+# rather than *drawing* missed tracks (many clicks per track). Detector is
+# run at conf=0.25 to over-detect; the tracker thresholds below let those
+# weak detections through to seed new tracks.
+#
+# Field reference: ultralytics/cfg/trackers/bytetrack.yaml
+tracker_type: bytetrack
+
+# First-pass association threshold. Detections >= this match to existing
+# tracks via IoU first. Aligned with the detector conf floor since we
+# already over-detect upstream.
+track_high_thresh: 0.25
+
+# Second-pass association floor for ByteTrack's "low-conf" pass that
+# recovers tracks through motion blur / partial occlusion. Detector won't
+# emit below 0.25 in practice, but the floor is harmless.
+track_low_thresh: 0.1
+
+# Confidence required to initialize a brand-new track. Raised from 0.25
+# because empirical conf on real vehicles is always >0.9 -- the 0.25-0.5
+# band is dominated by transient false positives (reflections, partial
+# detections of entering vehicles) that spawned 90+ <5-frame junk tracks
+# in the initial run. 0.5 kills those without losing any real detection.
+new_track_thresh: 0.5
+
+# Frames to keep a lost track alive before terminating. 60 frames = 2.0 s
+# at 29.97 fps -- doubled from the initial 30 to survive transient single-
+# frame detector misses when a motorcycle crosses road markings (white
+# paint changes the box's pixel statistics enough to occasionally drop
+# below NMS or shift the box, killing the IoU association).
+track_buffer: 60
+
+# IoU threshold for first-pass association. Lowered from 0.8 (default) to
+# 0.65 to tolerate Kalman prediction vs observed-box drift during
+# background-color transitions (asphalt -> lane marking -> asphalt). The
+# motorcycle is small and its box can shift 10-15 pixels through such
+# transitions; 0.8 vetoed those matches and spawned new IDs. 0.65 still
+# rejects swaps between two distinct motorcycles in proximity.
+match_thresh: 0.65
+
+# Multiply IoU cost by detection confidence during association. Helps
+# disambiguate when two tracks compete for one detection.
+fuse_score: True

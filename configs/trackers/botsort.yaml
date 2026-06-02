@@ -1,2 +1,51 @@
-# BoT-SORT tracker configuration.
-# TODO: thresholds, ReID toggle, GMC method.
+# BoT-SORT + ReID config for Stage 2 pseudo-track generation.
+#
+# Chosen over ByteTrack for UAV traffic at 100-120 m because motorcycles at
+# this altitude weave laterally fast and cross paths frequently. ByteTrack
+# (motion + IoU only) swapped IDs aggressively on the first test clip;
+# BoT-SORT adds appearance embeddings (ReID) which disambiguate crossing /
+# briefly-occluded objects that look similar in motion but different in
+# appearance.
+#
+# Field reference: ultralytics/cfg/trackers/botsort.yaml
+tracker_type: botsort
+
+# Same association thresholds as our ByteTrack config -- detector already
+# over-detects at conf=0.25; the tracker is configured to let those through.
+track_high_thresh: 0.25
+track_low_thresh: 0.1
+new_track_thresh: 0.25
+
+# Doubled from the ByteTrack config (30 -> 60 frames = 2.0 s at 29.97 fps).
+# With ReID enabled, a longer buffer is safer: appearance features can
+# re-identify a vehicle after a 1-2 s occlusion without spurious swaps,
+# whereas pure IoU re-association at 2 s would be guessing.
+track_buffer: 60
+
+match_thresh: 0.8
+fuse_score: True
+
+# Global motion compensation. The drone hovers but micro-drift still exists;
+# sparseOptFlow estimates frame-to-frame camera shift and applies it to
+# Kalman predictions. Negligible runtime cost on top-down imagery.
+gmc_method: sparseOptFlow
+
+# ReID configuration -- the headline change from ByteTrack.
+with_reid: True
+
+# Minimum IoU before ReID is consulted at all. Tracks farther apart than
+# this aren't candidates for ID merging -- prevents ReID from re-associating
+# objects on opposite sides of the frame just because they look similar.
+proximity_thresh: 0.5
+
+# Minimum appearance cosine similarity to accept an ID match. Default is
+# 0.8 -- intentionally strict, since two similar-looking motorcycles
+# (black bike, dark helmet) at 100 m altitude have weak appearance signal
+# and a permissive threshold would cause false ID merges between them.
+appearance_thresh: 0.8
+
+# 'auto' lets Ultralytics either reuse the detector's backbone features or
+# fall back to a small downloaded ReID model. For RT-DETR (transformer) it
+# typically downloads a YOLO-classification ReID encoder; ~30% throughput
+# hit but addresses the failure mode directly.
+model: auto
