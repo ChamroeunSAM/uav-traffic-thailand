@@ -16,7 +16,19 @@ locally on an owned RTX 5090 (32 GB) under Windows 11 — no cloud rental.
 benchmark deliverable is in hand.** All six detectors × five seeds (30
 trained models, 30 stratified test evaluations) committed to
 `results/stage1/`. RT-DETR-L wins on every metric; tight three-tier
-separation across the six. Stage 2-4 remain scaffolded but unvalidated.
+separation across the six. **Stage 2 is now active (human annotation in
+progress); the full Stage 3 pipeline is code-complete and validated
+end-to-end on synthetic data, awaiting real ground truth.** Stage 4
+remains scaffolded.
+
+> **Next session starts here (2026-06-03):** the Stage 2/3 work is now
+> committed (`cbfea1a`) and pushed to `origin`. The critical-path task is
+> the human CVAT annotation (Stage 2) — once the first clip's GT is
+> exported, run the D3
+> mini-experiment (see §3 Stage 3 and `docs/decision_log.md` D3). All
+> Stage 3 code (tracker runner + 4 BoxMOT wrappers + HOTA/MOTA/IDF1
+> evaluator) is built and validated; nothing else is needed before
+> annotation finishes.
 
 - [x] Stage 0: data-preparation pipeline
       (`00_split_raw_export.py` → `01_rename_with_altitude_prefix.py`
@@ -54,25 +66,52 @@ separation across the six. Stage 2-4 remain scaffolded but unvalidated.
 - [x] Altitude relabel (90 m → 100 m) propagated to forward-looking
       scripts, configs, and docs; historical commits/decision-log
       entries preserved as written
-- [in progress] Stage 2-4 scripts scaffolded
-      (`02_generate_pseudo_tracks.py`, `03_run_tracker.py`,
-      `03_eval_tracker.py`, `04_extract_trajectories.py`,
-      `04_eval_trajectories.py`, `00_calibrate.py`) but not yet
-      pilot-validated end-to-end
-- [in progress] Tracker wrappers exist (`src/trackers/{botsort,
-      bytetrack, ocsort, deep_ocsort}_wrapper.py`); tracker configs
-      committed (`configs/trackers/*.yaml`); not yet exercised
-- [in progress] Trajectory utilities scaffolded
+- [x] **Stage 2 pseudo-tracks generated** — RT-DETR-L + ByteTrack
+      (`02_generate_pseudo_tracks.py`) + 3-pass offline linker
+      (`02b_link_tracks.py`; "v3" = script defaults) over the 4 video
+      clips; raw→linked track counts cut ~80% (intersection 958→218,
+      etc.). Seeds at `data/video_annotations/pseudo_tracks/`. Note:
+      the linker is a fragment-stitcher, NOT a tracker — it depends on
+      ByteTrack's frame-to-frame association (verified empirically)
+- [x] **CVAT annotation round-trip solved** —
+      `02d_pack_cvat_mot.py` wraps each seed into a CVAT-importable
+      MOT-1.1 zip (`gt/gt.txt` + `gt/labels.txt`, class shifted to
+      1-based for Datumaro's `class_id−1` lookup);
+      `02e_unpack_cvat_mot.py` converts the export back to
+      repo-convention 0-based GT. Protocol fully rewritten
+      (`docs/stage2_annotation_protocol.md` §6/§8/§10)
+- [x] **Stage 3 pipeline built & validated on synthetic data** — all
+      4 trackers via one BoxMOT harness, "detect once / track four
+      times" (`03_run_tracker.py` + implemented
+      `src/trackers/*_wrapper.py` + `configs/trackers/boxmot/*.yaml`),
+      smoke-tested on a real clip; HOTA/MOTA/IDF1 evaluator wraps
+      TrackEval (`src/evaluation/tracking_metrics.py` +
+      `03_eval_tracker.py`), validated against synthetic GT
+      (perfect→1.0; IDSW / FN / cross-sequence combine all correct).
+      NOT yet run on real data
+- [in progress] **Human CVAT annotation** — the critical-path Stage 2
+      labor (~25-35 h, single annotator). Corrected GT lands at
+      `data/video_annotations/ground_truth/<clip>.gt.txt`
+- [in progress] Stage 4 trajectory utilities scaffolded
       (`src/trajectory/{calibration, kinematics, smoothing}.py`)
 - [x] Stage 1 benchmark commits pushed to `origin/master` (the
       benchmark is now backed up off the local machine)
-- [ ] Per-class mean/std aggregation — `aggregate_runs()` currently
-      reports overall + 100m/120m only; per-class numbers live in
-      each `runs/stage1_detectors/<run>/eval_results.json` and need a
-      cross-seed roll-up for the paper's class-difficulty table
-- [ ] Stage 2 kickoff: pseudo-track generation from the winning
-      detector (RT-DETR-L) for tracker ground-truth construction
-- [ ] Stage 2-4 execution
+- [x] **Stage 2/3 work committed and pushed** (`cbfea1a`) — CVAT
+      round-trip + full Stage 3 tracker pipeline now backed up on
+      `origin`
+- [ ] **D3 mini-experiment** — once the first GT clip
+      (`120_m_DJI_0006`) is exported: run all 4 trackers + linker on
+      it, then `03_eval_tracker.py --arms raw linked`, and read the
+      raw-vs-linked IDF1 spread to pick Option A vs B (decision_log D3)
+- [ ] Generate the full 4-clip × 4-tracker outputs (raw + linked) —
+      ~30-45 min on the 5090; independent of GT, can run anytime
+- [ ] Resolve boxmot version drift — lock pins `boxmot==18.0.0` but
+      `17.0.0` is installed; the wrappers were written/validated
+      against the 17.0.0 API
+- [ ] Pick a vehicle ReID model for BoT-SORT / Deep OC-SORT — current
+      default `osnet_x0_25_msmt17.pt` is a person-ReID encoder
+- [ ] Per-class mean/std aggregation for the Stage 1 class-difficulty
+      table (`aggregate_runs()` reports overall + 100m/120m only)
 - [ ] `docs/annotation_guide.md` — currently a one-line TODO stub
 - [ ] `docs/methodology.docx` — author must manually sync to current
       decision log + add the final 6-detector results table
@@ -103,17 +142,23 @@ see D2 in decision log). Training driver:
 `results/stage1_*.csv`.
 
 **Stage 2 — Semi-automatic video annotation for tracker evaluation.**
-The best Stage 1 detector generates pseudo-tracks over held-out video
-sequences (`02_generate_pseudo_tracks.py`); these are manually corrected
-to produce tracker ground truth. SAHI tiling
-(`yolo11_sahi_wrapper.py`) is the planned mechanism for high-recall
-small-object detection on long sequences. *Scaffolded, not validated.*
+RT-DETR-L + ByteTrack (`02_generate_pseudo_tracks.py`) then a 3-pass
+offline linker (`02b_link_tracks.py`) produce pseudo-tracks over the 4
+held-out clips. Seeds are packed for CVAT (`02d_pack_cvat_mot.py`), a
+human corrects them per `docs/stage2_annotation_protocol.md` (5 passes),
+and the export is converted to ground truth (`02e_unpack_cvat_mot.py`).
+*Pipeline operational; human annotation in progress.* (SAHI tiling via
+`yolo11_sahi_wrapper.py` remains an unused option for long sequences.)
 
 **Stage 3 — Tracker benchmarking.** Four trackers — ByteTrack, BoT-SORT,
-OC-SORT, Deep OC-SORT — coupled to the Stage 1 winner detector and
-scored against Stage 2 ground truth with HOTA / MOTA / IDF1
-(`src/evaluation/tracking_metrics.py`, `03_run_tracker.py`,
-`03_eval_tracker.py`). *Configs committed; runs pending real data.*
+OC-SORT, Deep OC-SORT — run through one BoxMOT harness
+(`03_run_tracker.py`, `src/trackers/*_wrapper.py`,
+`configs/trackers/boxmot/*.yaml`) coupled to RT-DETR-L via "detect once,
+track four times", and scored against Stage 2 GT with HOTA / MOTA / IDF1
+via TrackEval (`src/evaluation/tracking_metrics.py`,
+`03_eval_tracker.py`). Each tracker is evaluated twice — raw and
+post-linker (decision_log D3). *Code-complete and validated on synthetic
+data; runs pending real ground truth.*
 
 **Stage 4 — Trajectory quality evaluation.** Paper 1's headline
 contribution: a framework that evaluates trajectories — not just boxes
@@ -196,7 +241,9 @@ uav-traffic-thailand/
 │   ├── detectors/               ← per-detector training configs
 │   │                              (yolov9m, yolov10m, yolo11m, yolo12m, yolo26m, rtdetr_l;
 │   │                               also pilot_yolo11n, yolo11_sahi, rfdetr — retained, unused in Stage 1)
-│   ├── trackers/                ← botsort.yaml, bytetrack.yaml, deep_ocsort.yaml, ocsort.yaml
+│   ├── trackers/                ← Stage 2 (Ultralytics-format): botsort.yaml, bytetrack.yaml,
+│   │                              deep_ocsort.yaml, ocsort.yaml
+│   │       └── boxmot/          ← Stage 3 (BoxMOT-format): bytetrack, botsort, ocsort, deepocsort
 │   └── experiments/             ← stage1_detector_benchmark.yaml, stage3_tracker_benchmark.yaml,
 │                                  stage4_trajectory_eval.yaml
 ├── data/                        ← gitignored, ~10 GB locally
@@ -204,7 +251,12 @@ uav-traffic-thailand/
 │   │   ├── 100m/                ← Roboflow YOLOv8 export (currently placeholder)
 │   │   ├── 120m/                ← Roboflow YOLOv8 export (currently placeholder)
 │   │   └── merged/              ← generated by 00_prepare_splits.py, regenerable
-│   └── splits/                  ← generated: dataset.yaml, altitude_index.json, split_metadata.json
+│   ├── splits/                  ← generated: dataset.yaml, altitude_index.json, split_metadata.json
+│   ├── video_clips/             ← 4 source clips (~750 MB each, 4K @ 29.97 fps)
+│   └── video_annotations/       ← Stage 2/3 working data (gitignored)
+│       ├── pseudo_tracks/       ← linker seeds (.linked_v3.txt) + CVAT .cvat_mot.zip
+│       ├── ground_truth/        ← ★ corrected GT lands here (<clip>.gt.txt) — Stage 3 input
+│       └── tracker_outputs/     ← Stage 3 tracker results (raw + linked) + detection cache
 ├── docs/
 │   ├── methodology.docx         ← living methodology reference (binary, in git)
 │   ├── decision_log.md          ← AUTHORITATIVE record of architectural decisions
@@ -220,9 +272,13 @@ uav-traffic-thailand/
 │   ├── 01_rename_with_altitude_prefix.py    ← prefix raw exports with altitude tag
 │   ├── 01_train_detector.py                 ← train one detector from one config
 │   ├── 01_eval_detector.py                  ← evaluate with altitude-stratified breakdown
-│   ├── 02_generate_pseudo_tracks.py         ← Stage 2 pseudo-track generation (scaffolded)
-│   ├── 03_run_tracker.py                    ← Stage 3 tracker inference (scaffolded)
-│   ├── 03_eval_tracker.py                   ← Stage 3 HOTA/MOTA/IDF1 (scaffolded)
+│   ├── 02_generate_pseudo_tracks.py         ← Stage 2 pseudo-tracks (RT-DETR-L + ByteTrack)
+│   ├── 02b_link_tracks.py                    ← Stage 2 3-pass offline track linker ("v3" seed)
+│   ├── 02c_render_mot.py                     ← Stage 2 MOT-over-video visual QC renderer
+│   ├── 02d_pack_cvat_mot.py                  ← Stage 2 seed → CVAT MOT-1.1 import zip
+│   ├── 02e_unpack_cvat_mot.py               ← Stage 2 CVAT export → 0-based ground truth
+│   ├── 03_run_tracker.py                    ← Stage 3 BoxMOT runner (detect-once, 4 trackers)
+│   ├── 03_eval_tracker.py                   ← Stage 3 HOTA/MOTA/IDF1 (TrackEval CLI)
 │   ├── 04_extract_trajectories.py           ← Stage 4 trajectory extraction (scaffolded)
 │   ├── 04_eval_trajectories.py              ← Stage 4 trajectory-quality metrics (scaffolded)
 │   ├── run_benchmark.py                     ← orchestrate full 6×5 Stage 1 sweep
@@ -383,16 +439,38 @@ authoritative sources:
 Last 5 commits (refresh periodically):
 
 ```
-c4cd8e1  Add RT-DETR-L Stage 1 benchmark results -- Stage 1 complete
-ec59852  Add YOLO26-m Stage 1 benchmark results (5 seeds)
-81e5ee2  Add YOLO12-m Stage 1 benchmark results (5 seeds)
-9394914  Add YOLO11-m Stage 1 benchmark results (5 seeds)
-47c9e79  Add YOLOv10-m Stage 1 benchmark results (5 seeds)
+cbfea1a  Build Stage 2 CVAT round-trip and Stage 3 tracker pipeline
+e37fb96  Add Stage 2 annotation protocol and Stage 3 framing decision (D3)
+c1d7360  Add Stage 2 track linker and MOT renderer
+3dfff5e  Implement Stage 2 pseudo-track generation (RT-DETR-L + ByteTrack)
+6a02b75  Refresh CLAUDE.md after Stage 1 commits pushed to origin
 ```
+
+**Committed 2026-06-03 (`cbfea1a`, pushed to `origin`).** The Stage 2/3
+working-tree delta landed as one commit:
+
+*Stage 2 CVAT round-trip:*
+- `scripts/02d_pack_cvat_mot.py` — seed → CVAT MOT-1.1 zip
+- `scripts/02e_unpack_cvat_mot.py` — CVAT export → 0-based GT
+- `docs/stage2_annotation_protocol.md` — protocol rewrite
+
+*Stage 3 tracker pipeline:*
+- `scripts/03_run_tracker.py` — detect-once tracker runner
+- `src/trackers/base.py` + `{bytetrack,botsort,ocsort,deep_ocsort}_wrapper.py`
+  — BoxMOT wrappers
+- `configs/trackers/boxmot/{bytetrack,botsort,ocsort,deepocsort}.yaml`
+
+*Stage 3 evaluation:*
+- `src/evaluation/tracking_metrics.py` — TrackEval wrapper
+- `scripts/03_eval_tracker.py` — HOTA/MOTA/IDF1 CLI
+
+All validated (synthetic for the evaluator; real-clip smoke test for the
+tracker runner). No real Stage 2 GT exists yet, so no Stage 3 results
+have been produced.
 
 ## 11. Document Maintenance
 
-Last refreshed: **2026-06-02**
+Last refreshed: **2026-06-03**
 
 If today is more than one month past that date, sections 2 (Current
 Status) and 10 (Recent Activity) may be stale. Other sections are more
