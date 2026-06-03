@@ -1,0 +1,42 @@
+# Ground control points for image->world homography (Stage 4, decision_log D4).
+#
+# HOW TO FILL THIS IN
+# 1. Dump the reference frame (already done once at frame 0; re-dump a clearer
+#    frame if markings are occluded by vehicles):
+#      python scripts/00_calibrate.py --video data/video_clips/100_m_DJI_0054_1min.mp4 --dump-frame
+#      (optional: --frame N)
+# 2. Open data/video_annotations/calibration/frames/100_m_DJI_0054_1min.png in an
+#    image viewer that shows pixel coords on hover.
+# 3. Pick 4 points on the FLAT road plane whose real-world spacing you know
+#    (e.g. the 4 corners of a marking rectangle). Spread them across the frame.
+# 4. Local metric ground frame: one point is the origin (0,0); give the others'
+#    (X, Y) in METRES. A rectangle of known width W and length L is convenient:
+#    (0,0), (W,0), (W,L), (0,L).
+# 5. Fit:
+#      python scripts/00_calibrate.py --gcp configs/calibration/100_m_DJI_0054_1min.gcp.yaml
+#
+# NOTE: with exactly 4 points the fit is EXACT, so reprojection RMSE is always
+# ~0 and proves nothing. The `validation:` segment below (two pixels + an
+# independently-known distance, NOT among the 4 fit points) is your only check
+# against a mis-clicked point or wrong scale -- please fill it in.
+#
+# REFERENCE DIMENSIONS (use measured / satellite values where possible; a
+# globally-wrong distance scales ALL kinematics and RMSE cannot catch it):
+#   - traffic lane width ......... ~3.0-3.5 m   (confirm on-site)
+#   - dashed centre-line segment . confirm (commonly ~3 m segment + ~3 m gap)
+#
+clip: 100_m_DJI_0054_1min
+reference: "FILL ME: exact real-world distances used and their source (measured / satellite / Thai standard)."
+
+# 4 points. pixel: [u, v] from the reference frame; world: [X, Y] in metres.
+points:
+  - {name: p1, pixel: [null, null], world: [0.0, 0.0]}
+  - {name: p2, pixel: [null, null], world: [null, null]}
+  - {name: p3, pixel: [null, null], world: [null, null]}
+  - {name: p4, pixel: [null, null], world: [null, null]}
+
+# Independent scale check (strongly recommended with only 4 fit points).
+validation:
+  pixel_a: [null, null]
+  pixel_b: [null, null]
+  known_distance_m: null
