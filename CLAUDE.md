@@ -16,19 +16,24 @@ locally on an owned RTX 5090 (32 GB) under Windows 11 — no cloud rental.
 benchmark deliverable is in hand.** All six detectors × five seeds (30
 trained models, 30 stratified test evaluations) committed to
 `results/stage1/`. RT-DETR-L wins on every metric; tight three-tier
-separation across the six. **Stage 2 is now active (human annotation in
-progress); the full Stage 3 pipeline is code-complete and validated
-end-to-end on synthetic data, awaiting real ground truth.** Stage 4
-remains scaffolded.
+separation across the six. **Stage 2 is complete (all 4 clips annotated
+in CVAT and exported to ground truth); Stage 3 has produced its first
+real results — the full 4-tracker × 4-clip dual (raw + linked)
+benchmark is scored, and D3 is resolved to Option B.** Stage 4 remains
+scaffolded.
 
-> **Next session starts here (2026-06-03):** the Stage 2/3 work is now
-> committed (`cbfea1a`) and pushed to `origin`. The critical-path task is
-> the human CVAT annotation (Stage 2) — once the first clip's GT is
-> exported, run the D3
-> mini-experiment (see §3 Stage 3 and `docs/decision_log.md` D3). All
-> Stage 3 code (tracker runner + 4 BoxMOT wrappers + HOTA/MOTA/IDF1
-> evaluator) is built and validated; nothing else is needed before
-> annotation finishes.
+> **Next session starts here (2026-06-03):** Stage 2 annotation is done
+> (GT for all 4 clips at `data/video_annotations/ground_truth/`) and the
+> Stage 3 tracker benchmark has been run, scored, and committed
+> (`results/stage3/tracker_metrics.csv`). **D3 is locked to Option B**
+> (keep the comparative 4-tracker benchmark; see `docs/decision_log.md`
+> D3 Resolution). Headline: post-linker ByteTrack/BoT-SORT lead
+> (HOTA ≈ 0.89, IDF1 ≈ 0.87), OC-SORT family trails on association;
+> linking lifts every tracker (+0.06–0.11 IDF1). Open refinements before
+> the paper table is final: (1) swap the person-ReID encoder for a
+> vehicle ReID model and re-run BoT-SORT / Deep OC-SORT; (2) per-class
+> aggregation polish (LV is N/A on `120_m_DJI_0006`, which has no GT
+> large vehicles). Stage 4 (trajectory quality) is the next build.
 
 - [x] Stage 0: data-preparation pipeline
       (`00_split_raw_export.py` → `01_rename_with_altitude_prefix.py`
@@ -80,34 +85,46 @@ remains scaffolded.
       `02e_unpack_cvat_mot.py` converts the export back to
       repo-convention 0-based GT. Protocol fully rewritten
       (`docs/stage2_annotation_protocol.md` §6/§8/§10)
-- [x] **Stage 3 pipeline built & validated on synthetic data** — all
-      4 trackers via one BoxMOT harness, "detect once / track four
-      times" (`03_run_tracker.py` + implemented
-      `src/trackers/*_wrapper.py` + `configs/trackers/boxmot/*.yaml`),
-      smoke-tested on a real clip; HOTA/MOTA/IDF1 evaluator wraps
-      TrackEval (`src/evaluation/tracking_metrics.py` +
-      `03_eval_tracker.py`), validated against synthetic GT
-      (perfect→1.0; IDSW / FN / cross-sequence combine all correct).
-      NOT yet run on real data
-- [in progress] **Human CVAT annotation** — the critical-path Stage 2
-      labor (~25-35 h, single annotator). Corrected GT lands at
-      `data/video_annotations/ground_truth/<clip>.gt.txt`
+- [x] **Stage 2 human annotation complete** — all 4 clips corrected in
+      CVAT and exported; the 4 `.final.cvat_mot.zip` exports are
+      archived at `data/video_annotations/cvat_exports/` and unpacked to
+      ground truth at `data/video_annotations/ground_truth/<clip>.gt.txt`
+      via `02e_unpack_cvat_mot.py`. GT track counts: 0001=40, 0054=218,
+      0006=61, 0047=115; all cover the full 1799-frame clip
+- [x] **Stage 3 benchmark RUN on real data** — full 4-tracker × 4-clip
+      dual (raw + linked) eval scored with TrackEval; results committed
+      to `results/stage3/tracker_metrics.csv`. Aggregate post-linker:
+      ByteTrack HOTA 0.891 / IDF1 0.871, BoT-SORT 0.881 / 0.873,
+      Deep OC-SORT 0.855 / 0.846, OC-SORT 0.845 / 0.835. `DetA` ≈ 0.82
+      for all (shared RT-DETR detections), so the spread is pure
+      association; linking lifts every tracker (+0.06–0.11 IDF1) and
+      collapses IDSW (OC-SORT 3433→1062). The evaluator was previously
+      validated against synthetic GT (perfect→1.0; IDSW / FN /
+      cross-sequence combine all correct)
+- [x] **D3 resolved → Option B** (keep the comparative 4-tracker
+      benchmark + dual eval). The designated clip `120_m_DJI_0006` keeps
+      a wide post-linker IDF1 spread (0.69–0.80); see decision_log D3
+      Resolution. Density-dependent finding: tracker choice compresses on
+      dense free-flow, stays wide on sparse / complex geometry
+- [x] **Deep OC-SORT crash fixed** — BoxMOT's KF threw a non-PD Cholesky
+      on dense scenes (freeze/unfreeze re-update); reproducible runtime
+      patch `src/trackers/boxmot_patches.py` projects the covariance onto
+      the nearest PSD matrix only when a factorization would crash (no
+      hyperparameter change, locked env untouched). Without it the
+      benchmark would have been 3 trackers
 - [in progress] Stage 4 trajectory utilities scaffolded
       (`src/trajectory/{calibration, kinematics, smoothing}.py`)
 - [x] Stage 1 benchmark commits pushed to `origin/master` (the
       benchmark is now backed up off the local machine)
-- [x] **Stage 2/3 work committed and pushed** (`cbfea1a`) — CVAT
+- [x] **Stage 2/3 pipeline committed and pushed** (`cbfea1a`) — CVAT
       round-trip + full Stage 3 tracker pipeline now backed up on
       `origin`
-- [ ] **D3 mini-experiment** — once the first GT clip
-      (`120_m_DJI_0006`) is exported: run all 4 trackers + linker on
-      it, then `03_eval_tracker.py --arms raw linked`, and read the
-      raw-vs-linked IDF1 spread to pick Option A vs B (decision_log D3)
-- [ ] Generate the full 4-clip × 4-tracker outputs (raw + linked) —
-      ~30-45 min on the 5090; independent of GT, can run anytime
-- [ ] Resolve boxmot version drift — lock pins `boxmot==18.0.0` but
-      `17.0.0` is installed; the wrappers were written/validated
-      against the 17.0.0 API
+- [x] boxmot version drift resolved — **not a real drift.** Installed
+      `dist-info` is `18.0.0`, matching the lock pin; only boxmot's
+      hardcoded `__init__.__version__` string lies ("17.0.0", upstream
+      forgot to bump it). All 4 wrappers construct + `update()` cleanly
+      on the installed package via `create_tracker` (low-level API
+      intact in 18.0.0; signature accepts every kwarg we pass)
 - [ ] Pick a vehicle ReID model for BoT-SORT / Deep OC-SORT — current
       default `osnet_x0_25_msmt17.pt` is a person-ReID encoder
 - [ ] Per-class mean/std aggregation for the Stage 1 class-difficulty
@@ -147,7 +164,8 @@ offline linker (`02b_link_tracks.py`) produce pseudo-tracks over the 4
 held-out clips. Seeds are packed for CVAT (`02d_pack_cvat_mot.py`), a
 human corrects them per `docs/stage2_annotation_protocol.md` (5 passes),
 and the export is converted to ground truth (`02e_unpack_cvat_mot.py`).
-*Pipeline operational; human annotation in progress.* (SAHI tiling via
+*Complete — all 4 clips annotated and exported; GT at
+`data/video_annotations/ground_truth/`.* (SAHI tiling via
 `yolo11_sahi_wrapper.py` remains an unused option for long sequences.)
 
 **Stage 3 — Tracker benchmarking.** Four trackers — ByteTrack, BoT-SORT,
@@ -157,8 +175,12 @@ OC-SORT, Deep OC-SORT — run through one BoxMOT harness
 track four times", and scored against Stage 2 GT with HOTA / MOTA / IDF1
 via TrackEval (`src/evaluation/tracking_metrics.py`,
 `03_eval_tracker.py`). Each tracker is evaluated twice — raw and
-post-linker (decision_log D3). *Code-complete and validated on synthetic
-data; runs pending real ground truth.*
+post-linker (decision_log D3, resolved to **Option B**). *Run on real
+GT — results in `results/stage3/tracker_metrics.csv`. ByteTrack/BoT-SORT
+lead post-linker (HOTA ≈ 0.89). A runtime KF patch
+(`src/trackers/boxmot_patches.py`) keeps Deep OC-SORT from crashing on
+dense scenes. Pending refinement: vehicle ReID for the appearance
+trackers (currently person-ReID osnet).*
 
 **Stage 4 — Trajectory quality evaluation.** Paper 1's headline
 contribution: a framework that evaluates trajectories — not just boxes
@@ -255,8 +277,9 @@ uav-traffic-thailand/
 │   ├── video_clips/             ← 4 source clips (~750 MB each, 4K @ 29.97 fps)
 │   └── video_annotations/       ← Stage 2/3 working data (gitignored)
 │       ├── pseudo_tracks/       ← linker seeds (.linked_v3.txt) + CVAT .cvat_mot.zip
-│       ├── ground_truth/        ← ★ corrected GT lands here (<clip>.gt.txt) — Stage 3 input
-│       └── tracker_outputs/     ← Stage 3 tracker results (raw + linked) + detection cache
+│       ├── cvat_exports/        ← human-corrected CVAT exports (.final.cvat_mot.zip), archive
+│       ├── ground_truth/        ← ★ corrected GT (<clip>.gt.txt) — Stage 3 input (all 4 clips)
+│       └── tracker_outputs/     ← Stage 3 tracker results (raw + .linked.txt) + detection cache
 ├── docs/
 │   ├── methodology.docx         ← living methodology reference (binary, in git)
 │   ├── decision_log.md          ← AUTHORITATIVE record of architectural decisions
@@ -265,6 +288,8 @@ uav-traffic-thailand/
 │   └── annotation_guide.md      ← TODO stub; informal guidelines only
 ├── runs/                        ← gitignored — training run outputs (weights, logs)
 ├── results/                     ← committed — aggregated metrics CSVs
+│   ├── stage1/                  ← detector benchmark CSVs
+│   └── stage3/                  ← tracker_metrics.csv (raw + linked, per clip × tracker × scope)
 ├── scripts/
 │   ├── setup_environment.ps1                ← reproduce the venv from scratch
 │   ├── 00_prepare_splits.py                 ← merge per-altitude Roboflow exports
@@ -439,34 +464,35 @@ authoritative sources:
 Last 5 commits (refresh periodically):
 
 ```
+6078260  Run Stage 3 tracker benchmark on real GT; fix Deep OC-SORT; lock D3 Option B
 cbfea1a  Build Stage 2 CVAT round-trip and Stage 3 tracker pipeline
 e37fb96  Add Stage 2 annotation protocol and Stage 3 framing decision (D3)
 c1d7360  Add Stage 2 track linker and MOT renderer
 3dfff5e  Implement Stage 2 pseudo-track generation (RT-DETR-L + ByteTrack)
-6a02b75  Refresh CLAUDE.md after Stage 1 commits pushed to origin
 ```
 
-**Committed 2026-06-03 (`cbfea1a`, pushed to `origin`).** The Stage 2/3
-working-tree delta landed as one commit:
+**Stage 3 first real results (`6078260`, 2026-06-03).** Stage 2
+annotation finished for all 4 clips and the full Stage 3 benchmark ran
+end-to-end:
 
-*Stage 2 CVAT round-trip:*
-- `scripts/02d_pack_cvat_mot.py` — seed → CVAT MOT-1.1 zip
-- `scripts/02e_unpack_cvat_mot.py` — CVAT export → 0-based GT
-- `docs/stage2_annotation_protocol.md` — protocol rewrite
+- **Stage 2 GT in hand** — 4 CVAT exports archived at
+  `data/video_annotations/cvat_exports/`, unpacked to
+  `data/video_annotations/ground_truth/` (track counts 40 / 218 / 61 /
+  115; all full 1799 frames). *(GT + tracker outputs live under
+  gitignored `data/`; not in the commit.)*
+- **Benchmark results** — `results/stage3/tracker_metrics.csv` (160
+  rows: clip × tracker × arm × scope). Post-linker leaders ByteTrack /
+  BoT-SORT at HOTA ≈ 0.89; linking lifts all four (+0.06–0.11 IDF1).
+- **Deep OC-SORT KF fix** — `src/trackers/boxmot_patches.py` (+ wired
+  into `src/trackers/base.py`): PSD-projection guard for BoxMOT's
+  non-PD Cholesky crash on dense scenes.
+- **D3 resolved → Option B** — `docs/decision_log.md` D3 Resolution
+  block; CLAUDE.md §2/§3 updated.
 
-*Stage 3 tracker pipeline:*
-- `scripts/03_run_tracker.py` — detect-once tracker runner
-- `src/trackers/base.py` + `{bytetrack,botsort,ocsort,deep_ocsort}_wrapper.py`
-  — BoxMOT wrappers
-- `configs/trackers/boxmot/{bytetrack,botsort,ocsort,deepocsort}.yaml`
-
-*Stage 3 evaluation:*
-- `src/evaluation/tracking_metrics.py` — TrackEval wrapper
-- `scripts/03_eval_tracker.py` — HOTA/MOTA/IDF1 CLI
-
-All validated (synthetic for the evaluator; real-clip smoke test for the
-tracker runner). No real Stage 2 GT exists yet, so no Stage 3 results
-have been produced.
+Pending before the paper table is final: vehicle ReID (replace
+person-ReID osnet for BoT-SORT / Deep OC-SORT), per-class aggregation
+polish (LV is N/A on `120_m_DJI_0006` — no GT large vehicles), and the
+Stage 4 trajectory-quality build.
 
 ## 11. Document Maintenance
 
