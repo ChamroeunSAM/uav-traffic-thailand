@@ -28,8 +28,14 @@ evaluations.
 ```
 data/video_clips/<clip>.mp4                                    # source video
 data/video_annotations/pseudo_tracks/<clip>.linked_v3.txt      # seed annotations (MOT 1.1)
+data/video_annotations/pseudo_tracks/<clip>.cvat_mot.zip       # seed packaged for CVAT upload (see sec.6)
 data/video_annotations/pseudo_tracks/<clip>.linked_v3.vis.mp4  # visual reference
 ```
+
+The raw `.linked_v3.txt` is **not** uploaded to CVAT directly — CVAT's MOT
+1.1 importer recognizes the format by archive structure and rejects a bare
+`.txt`. The `.cvat_mot.zip` is the upload-ready wrapper produced by
+`scripts/02d_pack_cvat_mot.py` (see sec.6, step "Pack the seed").
 
 The four `<clip>` stems are:
 
@@ -121,11 +127,50 @@ Repeat for each of the four clips:
 9. Submit. CVAT will spend ~1-2 minutes extracting frames; wait for status
    to flip to `Completed`.
 
+**Pack the seed** (one-time, all clips at once). CVAT's MOT 1.1 importer
+will not accept a bare `<clip>.linked_v3.txt`: it detects the format from
+the archive layout, expecting a zip with `gt.txt` **and** `labels.txt` both
+inside a `gt/` folder. Wrap every seed file with:
+
+```
+python scripts/02d_pack_cvat_mot.py
+```
+
+This reads each `<clip>.linked_v3.txt` and writes
+`<clip>.cvat_mot.zip` alongside it, containing:
+
+```
+<clip>.cvat_mot.zip
+└── gt/
+    ├── gt.txt       # rows normalized to canonical 9-col MOT
+    │                  (frame,id,x,y,w,h,conf,class,visibility)
+    └── labels.txt    # LV / MV / SV, one per line
+```
+
+Two things the packer handles that are easy to get wrong by hand:
+
+- **`labels.txt` goes inside `gt/`, not at the archive root.** If it sits
+  at the root, CVAT ignores it and falls back to the built-in MOT label
+  enum, producing the import error *"Label 'pedestrian' is not registered
+  for this task"* (default MOT class 1 = pedestrian).
+- **The class column is rewritten 0-based → 1-based** (`LV 0→1, MV 1→2,
+  SV 2→3`). Datumaro indexes `labels.txt` as `class_id − 1`, so a 0-based
+  class column would shuffle every label by one *with no error* — the
+  worst kind of failure. The `labels.txt` order (`LV`, `MV`, `SV`) must
+  still match the CVAT project label order from sec.5.
+
+> **Note on export (sec.8):** because the seed is 1-based on disk, the
+> `.gt.txt` CVAT exports will likewise carry a **1-based** class column
+> (`1=LV, 2=MV, 3=SV`), whereas the detector/dataset convention elsewhere
+> in this repo is 0-based (`0=LV, 1=MV, 2=SV`). Stage 3 evaluation must
+> account for this one-element offset when reading the exported GT.
+
 Once the task is created, open the task page and use **Actions → Upload
 annotations**:
 
 - **Annotation format**: `MOT 1.1`
-- **File**: the corresponding `<clip>.linked_v3.txt`
+- **File**: the corresponding `<clip>.cvat_mot.zip` (the packed zip — *not*
+  the `.linked_v3.txt` and *not* the `.vis.mp4`).
 - Submit. The seed pseudo-tracks should appear when you open the task.
 
 ## 7. Annotation workflow (five passes per clip)
@@ -219,30 +264,35 @@ After Pass 5 on a clip:
 
 1. Open the task in CVAT.
 2. **Actions → Export task dataset**.
-3. **Format**: `MOT 1.1`.
-4. Save the resulting zip; extract `gt/gt.txt`.
-5. Rename to `<clip>.gt.txt` and place under
-   `data/video_annotations/ground_truth/`.
+3. **Format**: `MOT 1.1`. (Leave "Save images" unchecked — we only need
+   the annotations.)
+4. Save the resulting zip.
+5. Convert it to the repo-convention ground-truth file with the unpacker:
 
-Verify the output is parseable by running a quick sanity check:
+   ```
+   python scripts/02e_unpack_cvat_mot.py --input "<export>.zip"
+   ```
 
-```
-python -c "
-from collections import defaultdict
-t = defaultdict(list)
-with open('data/video_annotations/ground_truth/<clip>.gt.txt') as f:
-    for line in f:
-        p = line.strip().split(',')
-        t[int(p[1])].append(int(p[0]))
-print(f'tracks: {len(t)}')
-print(f'rows:   {sum(len(v) for v in t.values())}')
-print(f'frames: {max(max(v) for v in t.values())}')
-"
-```
+   This reads `gt/gt.txt` from the export and writes
+   `data/video_annotations/ground_truth/<clip>.gt.txt`. The clip stem is
+   inferred from the export filename; pass `--clip <stem>` if it can't be
+   matched. The script runs the sanity check below automatically.
 
-Track count should be in the same ballpark as the linker output (within
-±30%), row count should be roughly tracks × average lifetime, frame
-range should hit 1799.
+> **Why a script and not a plain rename (important):** CVAT/Datumaro
+> exports the MOT class column **1-based** (`1=LV, 2=MV, 3=SV`) — the
+> inverse of the `class_id − 1` mapping it uses on import (see sec.6). The
+> rest of this repo (detector, `dataset.yaml`, linker, renderer, Stage 3
+> eval) is **0-based** (`0=LV, 1=MV, 2=SV`). `02e_unpack_cvat_mot.py`
+> shifts the class column back to 0-based. Dropping the raw exported
+> `gt.txt` into `ground_truth/` without this shift produces a *silent*
+> off-by-one in every class label — no error, wrong results in Stage 3.
+
+The unpacker reports `tracks / rows / max-frame`. Sanity expectations:
+track count in the same ballpark as the linker seed (within ±30%), row
+count roughly tracks × average lifetime, and **max-frame = 1799** (full
+clip). The script warns if max-frame ≠ 1799 or if any class falls out of
+range after the shift (which would indicate the CVAT project label order
+was not `LV, MV, SV`).
 
 ## 9. Annotation order across the four clips
 
@@ -277,10 +327,21 @@ Limitations section will note this choice for reviewers.
   project's label order is `LV, MV, SV` exactly (§5). If labels were
   created in a different order, the class column in the export will be
   shuffled — fix the label order in CVAT settings and re-export.
-- **MOT import shows "no tracks loaded":** verify the file is plain
-  `<clip>.linked_v3.txt`, not the visualization MP4. CVAT's MOT
-  importer reads the first column as frame number; if the file has a
-  header row, delete it.
+- **CVAT won't accept the upload / "unknown format" on a `.txt`:** CVAT's
+  MOT 1.1 importer needs a *zip* (`gt/gt.txt` + `gt/labels.txt`), not a
+  bare `.txt`. Upload the `<clip>.cvat_mot.zip` produced by
+  `scripts/02d_pack_cvat_mot.py` (sec.6), not the raw `.linked_v3.txt` and
+  not the visualization MP4.
+- **Import error "Label 'pedestrian' is not registered for this task":**
+  CVAT ignored the custom `labels.txt` and fell back to the default MOT
+  label enum (class 1 = pedestrian). Cause: `labels.txt` was at the
+  archive root instead of inside `gt/`, and/or the class column was 0-based
+  instead of 1-based. The current `02d_pack_cvat_mot.py` handles both;
+  re-run it and re-upload the regenerated zip.
+- **MOT import shows "no tracks loaded":** confirm you uploaded the
+  `.cvat_mot.zip` and that its `gt/gt.txt` is non-empty. CVAT's MOT
+  importer reads the first column as frame number; the packer emits no
+  header row, so none should need removing.
 - **Frame numbers don't line up after import:** the linker emits
   1-indexed frames per MOT spec. CVAT uses 0-indexed internally but
   handles the conversion automatically on MOT import. If you see a

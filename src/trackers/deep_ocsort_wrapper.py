@@ -1,3 +1,10 @@
-﻿"""Deep OC-SORT tracker wrapper (OC-SORT + appearance ReID)."""
+"""Deep OC-SORT wrapper (BoxMOT). OC-SORT motion + appearance (ReID)."""
 
-# TODO: implement Deep OC-SORT wrapper.
+from __future__ import annotations
+
+from trackers.base import BaseTrackerWrapper
+
+
+class DeepOcSortWrapper(BaseTrackerWrapper):
+    tracker_type = "deepocsort"
+    needs_reid = True

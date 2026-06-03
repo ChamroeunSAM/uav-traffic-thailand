@@ -1,0 +1,19 @@
+# BoT-SORT (BoxMOT) -- Stage 3 benchmark config. Motion + IoU + appearance.
+#
+# ReID weights are supplied at runtime (--reid-weights in 03_run_tracker.py),
+# not here. NOTE: BoxMOT's default ReID models are PERSON-ReID (osnet/MSMT17);
+# a vehicle-appropriate ReID encoder is the proper Stage 3 choice and is a
+# documented open decision -- see 03_run_tracker.py header and the decision log.
+#
+# Starting points; validate in the D3 mini-experiment. Unlisted params use
+# BoxMOT class defaults.
+track_high_thresh: 0.5    # dets that seed / extend tracks
+track_low_thresh: 0.1     # second-pass low-conf recovery floor
+new_track_thresh: 0.6     # confidence to start a brand-new track
+track_buffer: 60          # ~2 s @ 30 fps lost-track survival
+match_thresh: 0.8         # IoU association gate
+proximity_thresh: 0.5     # IoU gate before appearance is considered
+appearance_thresh: 0.25   # cosine-distance gate on ReID embeddings
+cmc_method: ecc           # camera-motion compensation (UAV ego-motion)
+frame_rate: 30
+with_reid: true

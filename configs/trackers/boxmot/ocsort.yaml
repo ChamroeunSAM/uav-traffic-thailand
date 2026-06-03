@@ -1,0 +1,9 @@
+# OC-SORT (BoxMOT) -- Stage 3 benchmark config. Motion-only, no ReID.
+#
+# Observation-centric re-update + virtual-trajectory association. Starting
+# points; validate in the D3 mini-experiment. Unlisted params use BoxMOT
+# class defaults (Q_xy_scaling, Q_s_scaling, etc.).
+min_conf: 0.1
+delta_t: 3             # time window for observation-centric momentum
+inertia: 0.2           # velocity-direction consistency weight
+use_byte: false        # OC-SORT's optional ByteTrack-style low-conf recovery

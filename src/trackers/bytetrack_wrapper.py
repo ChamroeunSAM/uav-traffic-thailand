@@ -1,3 +1,10 @@
-﻿"""ByteTrack tracker wrapper."""
+"""ByteTrack wrapper (BoxMOT). Motion + IoU association, no appearance/ReID."""
 
-# TODO: implement ByteTrack wrapper.
+from __future__ import annotations
+
+from trackers.base import BaseTrackerWrapper
+
+
+class ByteTrackWrapper(BaseTrackerWrapper):
+    tracker_type = "bytetrack"
+    needs_reid = False

@@ -1,0 +1,12 @@
+# Deep OC-SORT (BoxMOT) -- Stage 3 benchmark config. OC-SORT + appearance ReID.
+#
+# ReID weights supplied at runtime (--reid-weights). Same person-vs-vehicle
+# ReID caveat as botsort.yaml applies. Starting points; validate in the D3
+# mini-experiment. Unlisted params use BoxMOT class defaults.
+delta_t: 3                # observation-centric momentum window
+inertia: 0.2              # velocity-direction consistency weight
+w_association_emb: 0.5    # appearance-embedding weight in the cost matrix
+alpha_fixed_emb: 0.95     # EMA factor for per-track appearance memory
+aw_param: 0.5             # adaptive-weighting parameter
+Q_xy_scaling: 0.01        # Kalman process noise (position)
+Q_s_scaling: 0.0001       # Kalman process noise (scale)

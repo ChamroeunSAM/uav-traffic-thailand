@@ -1,0 +1,16 @@
+# ByteTrack (BoxMOT) -- Stage 3 benchmark config.
+#
+# These are BoxMOT constructor arg names, NOT the Ultralytics field names used
+# by the Stage 2 seed config (configs/trackers/bytetrack.yaml). The two
+# harnesses are intentionally separate: Stage 2 used Ultralytics ByteTrack to
+# seed annotation; Stage 3 runs all four trackers through one BoxMOT interface
+# for a fair comparison.
+#
+# Values are sensible domain starting points, NOT empirically locked. The D3
+# mini-experiment on 120_m_DJI_0006_1min is where they get validated/tuned.
+# Params not listed fall back to BoxMOT's class defaults.
+min_conf: 0.1          # low floor; detections are fed in at conf >= 0.1
+track_thresh: 0.5      # high-confidence dets that seed / extend tracks
+match_thresh: 0.8      # IoU association gate (BoxMOT default)
+track_buffer: 60       # ~2 s @ 30 fps lost-track survival (UAV occlusion)
+frame_rate: 30         # source footage is 29.97 fps

@@ -1,3 +1,10 @@
-﻿"""OC-SORT tracker wrapper."""
+"""OC-SORT wrapper (BoxMOT). Observation-centric motion association, no ReID."""
 
-# TODO: implement OC-SORT wrapper.
+from __future__ import annotations
+
+from trackers.base import BaseTrackerWrapper
+
+
+class OcSortWrapper(BaseTrackerWrapper):
+    tracker_type = "ocsort"
+    needs_reid = False

@@ -1,3 +1,10 @@
-﻿"""BoT-SORT tracker wrapper."""
+"""BoT-SORT wrapper (BoxMOT). Motion + IoU + appearance (ReID) association."""
 
-# TODO: implement BoT-SORT wrapper.
+from __future__ import annotations
+
+from trackers.base import BaseTrackerWrapper
+
+
+class BotSortWrapper(BaseTrackerWrapper):
+    tracker_type = "botsort"
+    needs_reid = True
