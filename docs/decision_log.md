@@ -384,5 +384,43 @@ a non-positive-definite Cholesky on dense scenes during its
 freeze/unfreeze re-update; the patch projects the covariance onto the
 nearest PSD matrix only when a factorization would otherwise crash.
 Without it the benchmark would have been 3 trackers.
+
+**Vehicle-ReID follow-up (2026-06-03) — encoder choice is immaterial
+for top-down traffic.** The pending refinement noted above (replace the
+person-ReID encoder for the two appearance trackers) was carried out:
+the Stage 3 default ReID is now `clip_veri.pt` (a CLIP-ReID model
+trained on VeRi-776, a multi-camera urban *vehicle* surveillance
+dataset), run in FP16 (`--half`), set as the runner default in
+`03_run_tracker.py`. BoT-SORT and Deep OC-SORT were re-run + re-linked +
+re-scored; ByteTrack / OC-SORT are motion-only and unchanged. The
+person-ReID baseline outputs are archived at
+`data/video_annotations/tracker_outputs/_personreid_archive/` and the
+person-ReID metrics are preserved in git at commit `6078260`.
+
+Result — swapping the off-domain person encoder (`osnet_x0_25_msmt17`)
+for the domain-matched vehicle encoder moved every aggregate metric by
+≤ 0.003 (within noise):
+
+| tracker / arm | HOTA (person → vehicle) | IDF1 (person → vehicle) |
+|---|---|---|
+| BoT-SORT / raw | 0.820 → 0.819 | 0.808 → 0.808 |
+| BoT-SORT / linked | 0.881 → 0.881 | 0.873 → 0.874 |
+| Deep OC-SORT / raw | 0.776 → 0.779 | 0.745 → 0.749 |
+| Deep OC-SORT / linked | 0.855 → 0.856 | 0.846 → 0.846 |
+
+Interpretation (a reportable finding): for top-down UAV traffic at
+100–120 m, data association is **motion / IoU-dominated** — vehicles are
+well-separated and move predictably, so frame-to-frame IoU resolves
+nearly every match and the appearance embedding is a tiebreaker that
+rarely changes the outcome (BoT-SORT's `appearance_thresh=0.25`
+confirms appearance is a minor term). Overhead appearance is also weakly
+discriminative — same-class vehicles look near-identical from directly
+above — so there is little signal for *any* ReID to exploit. Practical
+takeaway: invest in detection / motion quality, not appearance ReID.
+`clip_veri` is nonetheless retained as the canonical config because it
+is the domain-appropriate choice and pre-empts the "why a person model
+on vehicles?" question; the null delta is reported as an observation.
+The earlier (`6078260`) person-ReID numbers are therefore validated
+rather than compromised.
 ---
 

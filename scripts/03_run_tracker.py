@@ -17,11 +17,13 @@ produced by 02e_unpack_cvat_mot.py):
 
     frame, id, bb_left, bb_top, bb_width, bb_height, conf, class, -1, -1
 
-REID CAVEAT (BoT-SORT, Deep OC-SORT): BoxMOT's default ReID weights are
-PERSON re-identification models (osnet / MSMT17). Top-down vehicles are not
-what those encoders were trained on. A vehicle-appropriate ReID model is the
-correct Stage 3 choice and remains an open decision; `--reid-weights` lets
-you swap it. The default is recorded so results are at least reproducible.
+REID (BoT-SORT, Deep OC-SORT): the default ReID weights are clip_veri.pt --
+a CLIP-ReID model trained on VeRi-776, a multi-camera urban *vehicle*
+surveillance dataset, which is the right domain for top-down traffic.
+BoxMOT auto-downloads it by name. Pass --reid-weights osnet_x0_25_msmt17.pt
+to reproduce the earlier person-ReID baseline (MSMT17 is a pedestrian
+dataset; that encoder is off-domain for vehicles and was the Stage 3
+placeholder). ByteTrack and OC-SORT are motion-only and ignore ReID.
 
 Examples:
     # ByteTrack on the roundabout clip (creates the detection cache)
@@ -73,9 +75,13 @@ def parse_args() -> argparse.Namespace:
                    help="RT-DETR-L detector weights (Stage 1 winner).")
     p.add_argument("--tracker-config", type=Path, default=None,
                    help="Tracker YAML. Default: configs/trackers/boxmot/<tracker>.yaml")
-    p.add_argument("--reid-weights", default="osnet_x0_25_msmt17.pt",
+    p.add_argument("--reid-weights", default="clip_veri.pt",
                    help="ReID weights for botsort/deepocsort (BoxMOT auto-"
-                        "downloads known names). See REID CAVEAT in the header.")
+                        "downloads known names). Default clip_veri.pt is a "
+                        "VeRi-776 *vehicle* ReID model (the right domain for "
+                        "top-down traffic). Pass osnet_x0_25_msmt17.pt to "
+                        "reproduce the earlier person-ReID baseline. See REID "
+                        "CAVEAT in the header.")
     p.add_argument("--detections", type=Path, default=None,
                    help="Detection cache path. Default: <out-dir>/<clip>.detections.npy")
     p.add_argument("--output-dir", type=Path, default=DEFAULT_OUT_DIR)
