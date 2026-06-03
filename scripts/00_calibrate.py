@@ -118,6 +118,33 @@ def fit_from_gcp(gcp_path: Path, out_dir: Path) -> int:
     H, rmse = fit_homography(pixel, world)
     logger.info("Fit homography for %s from %d GCPs", clip, len(pixel))
     logger.info("  reprojection RMSE = %.4f m", rmse)
+    if len(pixel) == 4:
+        logger.info("  (exact 4-point fit -> RMSE is ~0 by construction; see "
+                    "scale-consistency check below)")
+
+    # Scale-consistency check. For near-nadir footage the metres-per-pixel
+    # should be roughly uniform around the calibration quad; a transposed or
+    # mistyped world coordinate shows up as a wildly inconsistent edge scale.
+    # This is the main automatic guard when no validation segment is given.
+    px_arr = np.asarray(pixel, dtype=float)
+    wd_arr = np.asarray(world, dtype=float)
+    n = len(px_arr)
+    scales = []
+    for i in range(n):
+        j = (i + 1) % n
+        dpx = float(np.linalg.norm(px_arr[i] - px_arr[j]))
+        dwd = float(np.linalg.norm(wd_arr[i] - wd_arr[j]))
+        if dpx > 0:
+            scales.append(dwd / dpx)
+    if scales:
+        spread = max(scales) / min(scales) if min(scales) > 0 else float("inf")
+        logger.info("  scale consistency: %.4f-%.4f m/px  (spread %.2fx)",
+                    min(scales), max(scales), spread)
+        if spread > 1.5:
+            logger.warning("  scale spread %.1fx is high (>1.5) -- a world "
+                           "coordinate is likely wrong (transposed / mistyped) "
+                           "or a point is off the ground plane. Re-check the GCPs.",
+                           spread)
 
     # per-point residuals, so a bad point is easy to spot
     proj = pixel_to_world(pixel, H)

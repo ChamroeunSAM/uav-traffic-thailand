@@ -30,10 +30,10 @@ reference: "FILL ME: exact real-world distances used and their source (measured 
 
 # 4 points. pixel: [u, v] from the reference frame; world: [X, Y] in metres.
 points:
-  - {name: p1, pixel: [null, null], world: [0.0, 0.0]}
-  - {name: p2, pixel: [null, null], world: [null, null]}
-  - {name: p3, pixel: [null, null], world: [null, null]}
-  - {name: p4, pixel: [null, null], world: [null, null]}
+  - {name: p1, pixel: [530.64,681.79], world: [0.0, 0.0]}
+  - {name: p2, pixel: [1010.51,745.21], world: [15, 0.0]}  # example: W=15 m lane width
+  - {name: p3, pixel: [1027.42,645.86], world: [15,3]}
+  - {name: p4, pixel: [560.24,580.33], world: [0, 3]}
 
 # Independent scale check (strongly recommended with only 4 fit points).
 validation:

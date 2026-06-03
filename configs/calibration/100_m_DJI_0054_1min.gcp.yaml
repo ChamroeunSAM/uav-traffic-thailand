@@ -30,10 +30,10 @@ reference: "FILL ME: exact real-world distances used and their source (measured 
 
 # 4 points. pixel: [u, v] from the reference frame; world: [X, Y] in metres.
 points:
-  - {name: p1, pixel: [null, null], world: [0.0, 0.0]}
-  - {name: p2, pixel: [null, null], world: [null, null]}
-  - {name: p3, pixel: [null, null], world: [null, null]}
-  - {name: p4, pixel: [null, null], world: [null, null]}
+  - {name: p1, pixel: [813.91,1320.20], world: [0.0, 0.0]}
+  - {name: p2, pixel: [2063.25,1339.23], world: [40,0.0]}
+  - {name: p3, pixel: [2065.36,1231.42], world: [40,3.0]}
+  - {name: p4, pixel: [835.05,1216.62], world: [0.0, 3.0]}
 
 # Independent scale check (strongly recommended with only 4 fit points).
 validation:
