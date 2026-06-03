@@ -253,9 +253,10 @@ valid, only its altitude label was wrong.
 ## D3 — Stage 3 framing: dual evaluation (raw + post-linker) with fallback to single end-to-end
 
 **Date:** 2026-06-02
-**Status:** Accepted (primary path: dual evaluation; fallback path: single
-end-to-end), pending a mini-experiment safety check before committing the
-full Stage 3 compute.
+**Status:** **Resolved 2026-06-03 — Option B locked** (dual evaluation,
+full 4-tracker comparative benchmark). The mini-experiment was run; see
+the Resolution block at the end of this entry. Original text below is
+preserved as written.
 
 **Decision.** Stage 3 will evaluate each of the four trackers (ByteTrack,
 BoT-SORT, OC-SORT, Deep OC-SORT) *twice* against the Stage 2 ground truth:
@@ -333,5 +334,55 @@ the paper will note this choice for reviewers.
   benchmark commits.
 - After mini-experiment, lock Paper 1 framing (Option A or B) and update
   CLAUDE.md §3 accordingly.
+
+**Resolution (2026-06-03) — Option B locked.** The full 4-tracker ×
+4-clip dual evaluation was run (rather than only the single-clip
+mini-experiment) and scored with TrackEval; results in
+`results/stage3/tracker_metrics.csv`. The decision rule keys on the
+post-linker IDF1 spread on the designated clip `120_m_DJI_0006_1min`:
+
+| scope | raw IDF1 spread | linked IDF1 spread |
+|---|---|---|
+| `120_m_DJI_0006_1min` (designated clip) | 0.585–0.654 (w0.068) | **0.691–0.802 (w0.111)** |
+| `100_m_DJI_0001_1min` | w0.104 | 0.560–0.638 (w0.078) |
+| `120_m_DJI_0047_1min` | w0.093 | 0.819–0.867 (w0.048) |
+| `100_m_DJI_0054_1min` (dense) | w0.079 | 0.880–0.913 (w0.033) |
+| ALL (pooled) | w0.083 | 0.835–0.873 (w0.038) |
+
+On the designated clip the post-linker spread stays **wide** (0.111,
+landing at 0.69–0.80 — not the compressed 0.85–0.90 that would trigger
+the Option A fallback), so the dual evaluation is informative and the
+comparative benchmark is retained (**Option B**).
+
+The pooled "ALL" row looks compressed (w0.038) only because the dense
+clip (`0054`, ~259k GT rows) dominates the pool. This density dependence
+is itself a finding: tracker choice **compresses on dense free-flow**
+(all trackers reach IDF1 ≈ 0.88–0.91 post-link on `0054`) but **stays
+wide on sparser / complex geometry** (the `0006` roundabout, where
+BoT-SORT pulls clear at 0.802 vs ~0.69). It is reported as such rather
+than averaged away.
+
+Headline aggregate (clip=ALL, overall), raw → linked:
+
+| tracker | HOTA | IDF1 | IDSW |
+|---|---|---|---|
+| ByteTrack | 0.823 → 0.891 | 0.801 → 0.871 | 634 → 495 |
+| BoT-SORT | 0.820 → 0.881 | 0.808 → 0.873 | 680 → 539 |
+| Deep OC-SORT | 0.776 → 0.855 | 0.745 → 0.846 | 2665 → 850 |
+| OC-SORT | 0.763 → 0.845 | 0.725 → 0.835 | 3433 → 1062 |
+
+Because all four trackers consume identical RT-DETR detections
+(`DetA` ≈ 0.82 for all), the spread is pure association quality; the
+linker's gain is overwhelmingly ID-switch repair (largest for the
+weakest raw trackers). Caveat: BoT-SORT / Deep OC-SORT still ran with
+the off-domain person-ReID encoder (`osnet_x0_25_msmt17.pt`); vehicle
+ReID is a pending refinement that can only help the appearance trackers.
+
+Engineering note: Deep OC-SORT required a runtime numerical-stability
+patch (`src/trackers/boxmot_patches.py`) — BoxMOT's Kalman filter threw
+a non-positive-definite Cholesky on dense scenes during its
+freeze/unfreeze re-update; the patch projects the covariance onto the
+nearest PSD matrix only when a factorization would otherwise crash.
+Without it the benchmark would have been 3 trackers.
 ---
 

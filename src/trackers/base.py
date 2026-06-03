@@ -54,6 +54,8 @@ class BaseTrackerWrapper:
 
         # Late import: keeps argparse/--help fast and avoids importing torch
         # on callers that only need the class symbol.
+        from .boxmot_patches import apply_boxmot_patches
+        apply_boxmot_patches()  # idempotent; robust-Cholesky KF guard
         from boxmot.trackers.tracker_zoo import create_tracker
 
         params: dict = {}
