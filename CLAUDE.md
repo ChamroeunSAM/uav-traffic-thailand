@@ -29,11 +29,13 @@ scaffolded.
 > (keep the comparative 4-tracker benchmark; see `docs/decision_log.md`
 > D3 Resolution). Headline: post-linker ByteTrack/BoT-SORT lead
 > (HOTA ≈ 0.89, IDF1 ≈ 0.87), OC-SORT family trails on association;
-> linking lifts every tracker (+0.06–0.11 IDF1). Open refinements before
-> the paper table is final: (1) swap the person-ReID encoder for a
-> vehicle ReID model and re-run BoT-SORT / Deep OC-SORT; (2) per-class
-> aggregation polish (LV is N/A on `120_m_DJI_0006`, which has no GT
-> large vehicles). Stage 4 (trajectory quality) is the next build.
+> linking lifts every tracker (+0.06–0.11 IDF1). **Vehicle ReID swap
+> done** — canonical ReID is now `clip_veri.pt` (VeRi-776, FP16); it
+> moved every metric ≤ 0.003 vs the person-ReID baseline, a reportable
+> null result (association is motion/IoU-dominated from overhead; see
+> decision_log D3 follow-up). Remaining before the paper table is final:
+> per-class aggregation polish (LV is N/A on `120_m_DJI_0006`, which has
+> no GT large vehicles). Stage 4 (trajectory quality) is the next build.
 
 - [x] Stage 0: data-preparation pipeline
       (`00_split_raw_export.py` → `01_rename_with_altitude_prefix.py`
@@ -125,8 +127,16 @@ scaffolded.
       forgot to bump it). All 4 wrappers construct + `update()` cleanly
       on the installed package via `create_tracker` (low-level API
       intact in 18.0.0; signature accepts every kwarg we pass)
-- [ ] Pick a vehicle ReID model for BoT-SORT / Deep OC-SORT — current
-      default `osnet_x0_25_msmt17.pt` is a person-ReID encoder
+- [x] **Vehicle ReID adopted** — canonical Stage 3 ReID is now
+      `clip_veri.pt` (VeRi-776 CLIP-ReID, FP16), the runner default in
+      `03_run_tracker.py`. BoT-SORT / Deep OC-SORT re-run + re-linked +
+      re-scored. **Null result:** vs the person-ReID baseline every
+      aggregate metric moved ≤ 0.003 — association is motion/IoU-
+      dominated from overhead and top-down appearance is weakly
+      discriminative (decision_log D3 follow-up). Person-ReID outputs
+      archived at `tracker_outputs/_personreid_archive/`; person-ReID
+      metrics preserved at commit `6078260`. `--half` (FP16) also fixed
+      a near-OOM / ~9× slowdown the FP32 CLIP encoder hit on dense clips
 - [ ] Per-class mean/std aggregation for the Stage 1 class-difficulty
       table (`aggregate_runs()` reports overall + 100m/120m only)
 - [ ] `docs/annotation_guide.md` — currently a one-line TODO stub
@@ -179,8 +189,9 @@ post-linker (decision_log D3, resolved to **Option B**). *Run on real
 GT — results in `results/stage3/tracker_metrics.csv`. ByteTrack/BoT-SORT
 lead post-linker (HOTA ≈ 0.89). A runtime KF patch
 (`src/trackers/boxmot_patches.py`) keeps Deep OC-SORT from crashing on
-dense scenes. Pending refinement: vehicle ReID for the appearance
-trackers (currently person-ReID osnet).*
+dense scenes. ReID is `clip_veri.pt` (VeRi-776 vehicle encoder, FP16),
+which changed metrics ≤ 0.003 vs the person-ReID baseline — a null
+result (association is motion/IoU-dominated from overhead).*
 
 **Stage 4 — Trajectory quality evaluation.** Paper 1's headline
 contribution: a framework that evaluates trajectories — not just boxes
@@ -464,12 +475,25 @@ authoritative sources:
 Last 5 commits (refresh periodically):
 
 ```
+d5e4296  Adopt vehicle ReID (clip_veri, FP16) for Stage 3; null result recorded
 6078260  Run Stage 3 tracker benchmark on real GT; fix Deep OC-SORT; lock D3 Option B
 cbfea1a  Build Stage 2 CVAT round-trip and Stage 3 tracker pipeline
 e37fb96  Add Stage 2 annotation protocol and Stage 3 framing decision (D3)
 c1d7360  Add Stage 2 track linker and MOT renderer
-3dfff5e  Implement Stage 2 pseudo-track generation (RT-DETR-L + ByteTrack)
 ```
+
+**Vehicle ReID swap (`d5e4296`, 2026-06-03).** Canonical Stage 3 ReID is
+now `clip_veri.pt` (VeRi-776 CLIP-ReID, FP16) — runner default in
+`03_run_tracker.py`. BoT-SORT / Deep OC-SORT re-run + re-linked +
+re-scored (`results/stage3/tracker_metrics.csv` regenerated; ByteTrack /
+OC-SORT unchanged). **Null result:** vs the person-ReID baseline every
+aggregate metric moved ≤ 0.003 — for top-down traffic, association is
+motion/IoU-dominated and overhead appearance is weakly discriminative
+(decision_log D3 follow-up has the delta table). `clip_veri` kept as the
+principled config; the earlier (`6078260`) person-ReID numbers are
+validated, not compromised. FP16 also fixed a near-OOM / ~9× slowdown on
+dense clips. Person-ReID outputs archived under gitignored
+`tracker_outputs/_personreid_archive/`.
 
 **Stage 3 first real results (`6078260`, 2026-06-03).** Stage 2
 annotation finished for all 4 clips and the full Stage 3 benchmark ran
@@ -489,10 +513,9 @@ end-to-end:
 - **D3 resolved → Option B** — `docs/decision_log.md` D3 Resolution
   block; CLAUDE.md §2/§3 updated.
 
-Pending before the paper table is final: vehicle ReID (replace
-person-ReID osnet for BoT-SORT / Deep OC-SORT), per-class aggregation
-polish (LV is N/A on `120_m_DJI_0006` — no GT large vehicles), and the
-Stage 4 trajectory-quality build.
+Pending before the paper table is final: per-class aggregation polish
+(LV is N/A on `120_m_DJI_0006` — no GT large vehicles), and the Stage 4
+trajectory-quality build. (Vehicle ReID swap is done — see below.)
 
 ## 11. Document Maintenance
 
