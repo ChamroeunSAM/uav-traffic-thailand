@@ -35,14 +35,18 @@ scaffolded.
 > null result (association is motion/IoU-dominated from overhead; see
 > decision_log D3 follow-up). Stage 3 results are reported as the average
 > across the four clips, class-agnostic (no per-class breakdown — author
-> preference). **Stage 4 is now active: framing locked as decision_log D4
-> and Phase A (calibration) is built.** ★ NEXT ACTION (needs the human):
-> fill in `configs/calibration/120_m_DJI_0006_1min.gcp.yaml` with ground
-> control points (reference frame already dumped to
-> `data/video_annotations/calibration/frames/`), then
-> `python scripts/00_calibrate.py --gcp …` to fit + validate the
-> homography, and scale to the other 3 clips. Then Phase B (extract +
-> smooth + kinematics) → Phase C (trajectory metrics).
+> preference). **Stage 4 is underway (framing = decision_log D4):**
+> Phase A (calibration) and Phase B (trajectory extraction) are both
+> DONE & validated. All 4 clips have fitted homographies
+> (`data/video_annotations/calibration/`, from committed GCP specs) and
+> world-trajectory `.npz` files (`…/trajectories/`) with smoothed
+> kinematics. Sanity holds: GT speeds are physically plausible (0006
+> roundabout median 21 km/h) and the botsort-linked trajectories match GT
+> (median/95th 21.1/38.2 km/h). ★ NEXT: **Phase C** — implement
+> `src/evaluation/trajectory_metrics.py` + `04_eval_trajectories.py` (the
+> 3-axis metrics: identity persistence, accuracy vs GT, intrinsic
+> plausibility), run over all 4 trackers' linked outputs + GT ceiling,
+> and test the D4 pre-registered hypothesis.
 
 - [x] Stage 0: data-preparation pipeline
       (`00_split_raw_export.py` → `01_rename_with_altitude_prefix.py`
@@ -208,11 +212,16 @@ conversion (`src/trajectory/calibration.py`), kinematic feature
 extraction (`kinematics.py`), and smoothing (`smoothing.py`) feed
 `src/evaluation/trajectory_metrics.py`. *Framing locked (decision_log
 **D4**) — including why box metrics don't subsume trajectory quality and
-a pre-registered Stage 3 hypothesis. **Phase A (calibration) implemented
-& validated**: per-clip ground-plane homography from road-marking GCPs
+a pre-registered Stage 3 hypothesis. **Phases A + B done & validated.**
+Phase A: per-clip ground-plane homography from road-marking GCPs
 (`00_calibrate.py`, `calibration.py`, `docs/calibration_protocol.md`,
-`configs/calibration/<clip>.gcp.yaml`). Awaiting human GCP entry; Phases
-B (extract/smooth/kinematics) and C (metrics) still stubs.*
+`configs/calibration/<clip>.gcp.yaml`) — all 4 clips fitted, scale
+cross-validates (100 m ≈0.030, 120 m ≈0.040 m/px). Phase B: world
+trajectories with smoothed kinematics (`smoothing.py` Savitzky–Golay,
+`kinematics.py`, `04_extract_trajectories.py`) — splits at long gaps and
+physically-impossible jumps; GT speeds plausible and tracker matches GT.
+Phase C (`trajectory_metrics.py`, `04_eval_trajectories.py`) still
+stubs — the 3-axis metrics + hypothesis test are next.*
 
 ## 4. Key Architectural Decisions
 
@@ -305,7 +314,8 @@ uav-traffic-thailand/
 │       ├── cvat_exports/        ← human-corrected CVAT exports (.final.cvat_mot.zip), archive
 │       ├── ground_truth/        ← ★ corrected GT (<clip>.gt.txt) — Stage 3 input (all 4 clips)
 │       ├── tracker_outputs/     ← Stage 3 tracker results (raw + .linked.txt) + detection cache
-│       └── calibration/         ← Stage 4: fitted homographies <clip>.json + frames/ (regenerable)
+│       ├── calibration/         ← Stage 4: fitted homographies <clip>.json + frames/ (regenerable)
+│       └── trajectories/        ← Stage 4: world trajectories + kinematics <name>.npz (regenerable)
 ├── docs/
 │   ├── methodology.docx         ← living methodology reference (binary, in git)
 │   ├── decision_log.md          ← AUTHORITATIVE record of architectural decisions
@@ -490,12 +500,23 @@ authoritative sources:
 Last 5 commits (refresh periodically):
 
 ```
+a180988  Stage 4 Phase B: world-trajectory extraction (smooth + kinematics)
+c6cb22d  Fill GCPs for all 4 clips; fit homographies; add scale-consistency check
 7a763ea  Stage 4 Phase A: image-to-world calibration + decision-log D4
 d5e4296  Adopt vehicle ReID (clip_veri, FP16) for Stage 3; null result recorded
 6078260  Run Stage 3 tracker benchmark on real GT; fix Deep OC-SORT; lock D3 Option B
-cbfea1a  Build Stage 2 CVAT round-trip and Stage 3 tracker pipeline
-e37fb96  Add Stage 2 annotation protocol and Stage 3 framing decision (D3)
 ```
+
+**Stage 4 Phases A+B (`7a763ea`, `c6cb22d`, `a180988`, 2026-06-03).**
+Calibration: 4 per-clip homographies fitted from human GCPs (specs in
+`configs/calibration/`, fitted JSON gitignored); `00_calibrate.py` flags
+inconsistent points via a scale-consistency check (caught a transposed
+coord on 0054); scale cross-validates by altitude. Extraction:
+`smoothing.py` (Savitzky–Golay) + `kinematics.py` + `04_extract_trajectories.py`
+turn MOT tracks into world-coordinate trajectories with speed / accel /
+heading / jerk, splitting at long gaps and impossible jumps. Validated on
+GT + a tracker output (plausible speeds; tracker matches GT). NEXT: Phase
+C — `trajectory_metrics.py` + `04_eval_trajectories.py`.
 
 **Stage 4 Phase A — calibration (`7a763ea`, 2026-06-03).** Stage 4 framing
 locked as decision_log **D4** (3-axis trajectory quality; why box metrics
