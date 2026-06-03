@@ -33,9 +33,16 @@ scaffolded.
 > done** — canonical ReID is now `clip_veri.pt` (VeRi-776, FP16); it
 > moved every metric ≤ 0.003 vs the person-ReID baseline, a reportable
 > null result (association is motion/IoU-dominated from overhead; see
-> decision_log D3 follow-up). Remaining before the paper table is final:
-> per-class aggregation polish (LV is N/A on `120_m_DJI_0006`, which has
-> no GT large vehicles). Stage 4 (trajectory quality) is the next build.
+> decision_log D3 follow-up). Stage 3 results are reported as the average
+> across the four clips, class-agnostic (no per-class breakdown — author
+> preference). **Stage 4 is now active: framing locked as decision_log D4
+> and Phase A (calibration) is built.** ★ NEXT ACTION (needs the human):
+> fill in `configs/calibration/120_m_DJI_0006_1min.gcp.yaml` with ground
+> control points (reference frame already dumped to
+> `data/video_annotations/calibration/frames/`), then
+> `python scripts/00_calibrate.py --gcp …` to fit + validate the
+> homography, and scale to the other 3 clips. Then Phase B (extract +
+> smooth + kinematics) → Phase C (trajectory metrics).
 
 - [x] Stage 0: data-preparation pipeline
       (`00_split_raw_export.py` → `01_rename_with_altitude_prefix.py`
@@ -195,11 +202,17 @@ result (association is motion/IoU-dominated from overhead).*
 
 **Stage 4 — Trajectory quality evaluation.** Paper 1's headline
 contribution: a framework that evaluates trajectories — not just boxes
-— along axes such as kinematic plausibility, smoothness, and identity
-persistence. Pixel-to-world conversion (`src/trajectory/calibration.py`),
-kinematic feature extraction (`kinematics.py`), and smoothing
-(`smoothing.py`) feed `src/evaluation/trajectory_metrics.py`. Calibration
-protocol drafted in `docs/calibration_protocol.md`. *Scaffolded.*
+— along three axes (identity persistence, kinematic accuracy vs GT, and
+intrinsic physical plausibility), averaged across clips. Pixel-to-world
+conversion (`src/trajectory/calibration.py`), kinematic feature
+extraction (`kinematics.py`), and smoothing (`smoothing.py`) feed
+`src/evaluation/trajectory_metrics.py`. *Framing locked (decision_log
+**D4**) — including why box metrics don't subsume trajectory quality and
+a pre-registered Stage 3 hypothesis. **Phase A (calibration) implemented
+& validated**: per-clip ground-plane homography from road-marking GCPs
+(`00_calibrate.py`, `calibration.py`, `docs/calibration_protocol.md`,
+`configs/calibration/<clip>.gcp.yaml`). Awaiting human GCP entry; Phases
+B (extract/smooth/kinematics) and C (metrics) still stubs.*
 
 ## 4. Key Architectural Decisions
 
@@ -277,6 +290,7 @@ uav-traffic-thailand/
 │   ├── trackers/                ← Stage 2 (Ultralytics-format): botsort.yaml, bytetrack.yaml,
 │   │                              deep_ocsort.yaml, ocsort.yaml
 │   │       └── boxmot/          ← Stage 3 (BoxMOT-format): bytetrack, botsort, ocsort, deepocsort
+│   ├── calibration/             ← Stage 4 GCP specs (committed): <clip>.gcp.yaml
 │   └── experiments/             ← stage1_detector_benchmark.yaml, stage3_tracker_benchmark.yaml,
 │                                  stage4_trajectory_eval.yaml
 ├── data/                        ← gitignored, ~10 GB locally
@@ -290,7 +304,8 @@ uav-traffic-thailand/
 │       ├── pseudo_tracks/       ← linker seeds (.linked_v3.txt) + CVAT .cvat_mot.zip
 │       ├── cvat_exports/        ← human-corrected CVAT exports (.final.cvat_mot.zip), archive
 │       ├── ground_truth/        ← ★ corrected GT (<clip>.gt.txt) — Stage 3 input (all 4 clips)
-│       └── tracker_outputs/     ← Stage 3 tracker results (raw + .linked.txt) + detection cache
+│       ├── tracker_outputs/     ← Stage 3 tracker results (raw + .linked.txt) + detection cache
+│       └── calibration/         ← Stage 4: fitted homographies <clip>.json + frames/ (regenerable)
 ├── docs/
 │   ├── methodology.docx         ← living methodology reference (binary, in git)
 │   ├── decision_log.md          ← AUTHORITATIVE record of architectural decisions
@@ -475,12 +490,26 @@ authoritative sources:
 Last 5 commits (refresh periodically):
 
 ```
+7a763ea  Stage 4 Phase A: image-to-world calibration + decision-log D4
 d5e4296  Adopt vehicle ReID (clip_veri, FP16) for Stage 3; null result recorded
 6078260  Run Stage 3 tracker benchmark on real GT; fix Deep OC-SORT; lock D3 Option B
 cbfea1a  Build Stage 2 CVAT round-trip and Stage 3 tracker pipeline
 e37fb96  Add Stage 2 annotation protocol and Stage 3 framing decision (D3)
-c1d7360  Add Stage 2 track linker and MOT renderer
 ```
+
+**Stage 4 Phase A — calibration (`7a763ea`, 2026-06-03).** Stage 4 framing
+locked as decision_log **D4** (3-axis trajectory quality; why box metrics
+don't subsume it; pre-registered Stage 3 hypothesis + anticipated
+KF-smoothing inversion). Implemented per-clip ground-plane homography
+calibration: `src/trajectory/calibration.py`, `scripts/00_calibrate.py`
+(`--dump-frame` + GCP fit with reprojection-RMSE + held-out scale check),
+`docs/calibration_protocol.md`, and a GCP template
+`configs/calibration/120_m_DJI_0006_1min.gcp.yaml`. Validated on a
+synthetic homography (~1e-6 m) and the CLI fit path end-to-end; 4 reference
+frames dumped (gitignored). **Blocked on human GCP entry** — fill the
+`.gcp.yaml`, fit, then Phase B (extract/smooth/kinematics) + Phase C
+(metrics). `smoothing.py`, `kinematics.py`, `trajectory_metrics.py`, and
+the `04_*` scripts remain stubs.
 
 **Vehicle ReID swap (`d5e4296`, 2026-06-03).** Canonical Stage 3 ReID is
 now `clip_veri.pt` (VeRi-776 CLIP-ReID, FP16) — runner default in
