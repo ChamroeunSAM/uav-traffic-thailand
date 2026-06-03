@@ -424,3 +424,106 @@ The earlier (`6078260`) person-ReID numbers are therefore validated
 rather than compromised.
 ---
 
+## D4 — Stage 4 framing: trajectory-quality evaluation, and why box metrics do not subsume it
+
+**Date:** 2026-06-03
+**Status:** Accepted.
+
+**Decision.** Stage 4 evaluates the *trajectories* produced by the Stage 3
+pipeline (each tracker's linked output) as physical motion in metric world
+coordinates, along three axes:
+
+1. **Identity persistence** — trajectory completeness (fraction of a GT
+   track's lifetime covered), fragments per GT track, ID consistency.
+2. **Positional / kinematic accuracy** (vs matched GT, in world units) —
+   ADE / FDE / position-RMSE (m), speed MAE (m/s), heading error (deg).
+3. **Intrinsic physical plausibility** (GT-free) — fraction of
+   acceleration samples within physical bounds, jerk distribution,
+   smoothness (mean |jerk| / curvature), per-class speed sanity.
+
+Metrics are averaged across the four clips and reported class-agnostic
+(no per-class breakdown — author preference; avoids the degenerate
+"no-GT-LV on 120_m_DJI_0006" case). All four trackers' linked outputs are
+scored, with the **GT trajectories themselves run through the same
+pipeline as a reference ceiling**.
+
+**Why Stage 4 is not inferable from Stage 3 (the core rationale).** Every
+Stage 3 metric (HOTA/MOTA/IDF1/IDSW, incl. LocA) matches boxes by IoU at a
+threshold, per frame, in pixel space. None observe how position evolves
+over time. Therefore:
+
+- Axis 1 (identity persistence) *is* strongly predicted by Stage 3
+  (IDF1 / IDSW / Frag). Stage 4 reports it mainly to confirm; it is
+  largely redundant with Stage 3 here.
+- Axis 2 (kinematic accuracy) is invisible to Stage 3: a box can stay
+  within IoU tolerance every frame (high HOTA / LocA) while jittering a
+  few px frame-to-frame, and that jitter *dominates* the differentiated
+  velocity / acceleration. Two trackers with identical HOTA can yield very
+  different speed error. IoU-threshold matching cannot see this.
+- Axis 3 (plausibility / smoothness) is fully orthogonal to Stage 3 and is
+  the novel, reusable, GT-free core — it scores trajectories where no GT
+  exists, which is the Paper 2 (SSM) use case.
+
+**Pre-registered hypothesis (from Stage 3).** The predicted best feedstock
+is **BoT-SORT or ByteTrack, post-linker** (highest IDF1 ≈ 0.87, lowest
+IDSW). Stage 4 tests whether that survives in trajectory space. A
+*testable inversion* is explicitly anticipated: the OC-SORT family is
+Kalman-filter-based and its motion model **smooths position**, so OC-SORT /
+Deep OC-SORT may produce smoother, more physically-plausible kinematics
+(Axis 3) *despite* losing on identity (Axis 1) in Stage 3 — i.e. the best
+identity tracker need not be the best kinematics tracker. Either outcome is
+a finding: if the rankings agree, box metrics are a validated cheap proxy
+for trajectory quality; if they diverge, box metrics are demonstrably
+insufficient and a trajectory-quality framework is necessary — which is
+Paper 1's thesis. The point of Stage 4 is the framework + this test, not
+re-deriving the Stage 3 ranking.
+
+**Calibration — per-clip homography from road-marking GCPs.** Pixel→world
+is a single planar homography per clip (near-nadir UAV over locally flat
+road), fit from ≥4 (recommend 6–8) ground control points whose pixel
+locations are read off a reference frame and whose world coordinates come
+from a local metric ground frame anchored to known road-marking geometry
+(Thai lane width, dashed centre-line segment / gap lengths). No drone
+telemetry is available (the clips carry no SRT/EXIF flight metadata), and
+no global georeferencing is required because kinematics depend only on
+relative metric distance. Fit quality is reported as reprojection RMSE in
+metres (the error budget). **Caveat:** RMSE detects point-entry / local
+fit errors but *cannot* detect a globally-wrong reference distance, which
+scales all kinematics uniformly — so a held-out validation segment (two
+pixels + an independently-known distance) is recorded per clip as a scale
+check. Rejected alternatives: a single GSD scalar (ignores any perspective
+gradient across the 4K frame; assumes exact nadir) and satellite
+georeferencing (more manual effort, depends on findable stable landmarks;
+unnecessary since only relative distance matters here).
+
+**Smoothing — Savitzky–Golay primary.** Raw pixel-center tracks are
+differentiated to obtain velocity / acceleration, so smoothing is required
+before kinematics (raw differentiation amplifies per-frame jitter).
+Savitzky–Golay is the primary smoother (standard for trajectory
+differentiation, preserves peaks, one window+order hyperparameter);
+metrics are reported pre- and post-smoothing so smoothing is a *studied
+variable*, not a hidden fixed step (it also feeds the Axis-3 smoothness
+measure). Kalman / spline smoothers remain options if needed.
+
+**Pipeline / artifacts.** `00_calibrate.py` (+ `src/trajectory/calibration.py`)
+fits and stores per-clip homographies; `04_extract_trajectories.py`
+(+ `smoothing.py`, `kinematics.py`) projects + smooths + differentiates
+into world trajectories; `04_eval_trajectories.py`
+(+ `src/evaluation/trajectory_metrics.py`) scores them into
+`results/stage4/trajectory_metrics.csv`. GCP specs live in
+`configs/calibration/<clip>.gcp.yaml` (committed); fitted homographies and
+trajectories live under gitignored `data/` (regenerable from the committed
+GCP specs + scripts).
+
+**Action items.**
+- Phase A: implement calibration (`calibration.py`, `00_calibrate.py`),
+  dump reference frames, template GCP files, write
+  `docs/calibration_protocol.md`. Collect GCPs for one clip, validate the
+  homography (reprojection RMSE + held-out scale check), then scale to four.
+- Phase B: extraction (projection + smoothing + kinematics); sanity-check
+  speeds land in plausible km/h on GT.
+- Phase C: trajectory metrics + eval CLI → results CSV.
+- Phase D: validate, compare against the pre-registered hypothesis, refresh
+  CLAUDE.md.
+---
+
