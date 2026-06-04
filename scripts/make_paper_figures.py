@@ -19,6 +19,8 @@ import numpy as np
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
+import csv  # noqa: E402
+
 import matplotlib  # noqa: E402
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
@@ -204,11 +206,55 @@ def fig_spaghetti(clip="120_m_DJI_0006_1min", source="gt"):
     _save(fig, f"F7_trajectories_{clip}_{source}")
 
 
+# --------------------------------------------------------------------------- #
+# F4 -- box-tracking quality vs trajectory plausibility (the thesis figure)
+# --------------------------------------------------------------------------- #
+STAGE3 = PROJECT_ROOT / "results/stage3/tracker_metrics.csv"
+STAGE4 = PROJECT_ROOT / "results/stage4/trajectory_metrics.csv"
+MARKER = {"bytetrack": "o", "botsort": "s", "ocsort": "^", "deepocsort": "D"}
+
+
+def fig_boxvstraj():
+    # per-clip linked HOTA (Stage 3) and raw accel-ok (Stage 4)
+    hota = {(r["clip"], r["tracker"]): float(r["HOTA"])
+            for r in csv.DictReader(STAGE3.open(encoding="utf-8"))
+            if r["arm"] == "linked" and r.get("scope", "overall") == "overall"}
+    accel = {(r["clip"], r["source"]): float(r["a3_frac_accel_ok"])
+             for r in csv.DictReader(STAGE4.open(encoding="utf-8"))
+             if r["variant"] == "raw" and r["a3_frac_accel_ok"] not in ("", None)}
+    gt_ceiling = accel.get(("ALL", "gt"))
+
+    fig, ax = plt.subplots(figsize=(6.4, 4.6))
+    if gt_ceiling:
+        ax.axhline(gt_ceiling, color="0.3", ls="--", lw=1.3)
+        ax.text(0.836, gt_ceiling + 0.004, "GT plausibility ceiling",
+                color="0.3", fontsize=9)
+    for t in TRACKERS:
+        # per-clip points (small, translucent)
+        xs = [hota[(c, t)] for c in BENCH_CLIPS if (c, t) in hota and (c, t) in accel]
+        ys = [accel[(c, t)] for c in BENCH_CLIPS if (c, t) in hota and (c, t) in accel]
+        ax.scatter(xs, ys, c=COLOR[t], marker=MARKER[t], s=28, alpha=0.35,
+                   linewidths=0)
+        # aggregate point (large, labelled)
+        ax_, ay_ = hota.get(("ALL", t)), accel.get(("ALL", t))
+        if ax_ and ay_:
+            ax.scatter([ax_], [ay_], c=COLOR[t], marker=MARKER[t], s=130,
+                       edgecolors="black", linewidths=1.0, zorder=5,
+                       label=LABEL[t])
+    ax.set_xlabel("HOTA  (box tracking, post-linker)  →  better")
+    ax.set_ylabel("frac. |a| ≤ 8 m/s²  (trajectory plausibility)  →  better")
+    ax.set_title("Box-tracking quality vs. trajectory plausibility")
+    ax.legend(loc="lower right", frameon=True, title="aggregate (small = per clip)")
+    ax.grid(True, alpha=0.25)
+    _save(fig, "F4_box_vs_trajectory")
+
+
 FIGURES = {
     "accel": fig_accel,
     "jerk": fig_jerk,
     "smoothing": fig_smoothing,
     "spaghetti": fig_spaghetti,
+    "boxvstraj": fig_boxvstraj,
 }
 
 
