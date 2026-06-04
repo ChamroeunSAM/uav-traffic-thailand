@@ -40,7 +40,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
 from evaluation.trajectory_metrics import (  # noqa: E402
-    TrajParams, evaluate_against_gt, evaluate_plausibility_only,
+    TrajParams, evaluate_against_gt, evaluate_gt_free, evaluate_plausibility_only,
 )
 
 logger = logging.getLogger(__name__)
@@ -50,7 +50,18 @@ DEFAULT_GT_DIR = PROJECT_ROOT / "data/video_annotations/ground_truth"
 DEFAULT_TRK_DIR = PROJECT_ROOT / "data/video_annotations/tracker_outputs"
 DEFAULT_TRAJ_DIR = PROJECT_ROOT / "data/video_annotations/trajectories"
 DEFAULT_OUT = PROJECT_ROOT / "results/stage4/trajectory_metrics.csv"
+DEFAULT_GTFREE_OUT = PROJECT_ROOT / "results/stage4/trajectory_metrics_gtfree.csv"
 EXTRACT_SCRIPT = PROJECT_ROOT / "scripts/04_extract_trajectories.py"
+
+# GT-free column order (Axis-3 plausibility + self-consistency proxies)
+GTFREE_COLS = [
+    "sc_n_tracks", "sc_n_segments", "sc_seg_per_track", "sc_teleport_breaks",
+    "sc_mean_track_dur_s", "sc_median_track_dur_s", "sc_gap_filled_frac",
+    "a3_n_samples", "a3_frac_accel_ok", "a3_frac_speed_ok",
+    "a3_accel_p95_mps2", "a3_accel_max_mps2", "a3_jerk_mean_mps3",
+    "a3_jerk_p95_mps3", "a3_curv_mean_inv_m",
+    "a3_speed_median_kmh", "a3_speed_p95_kmh", "a3_speed_max_kmh",
+]
 
 # Preferred column order; any extra keys are appended after these.
 METRIC_COLS = [
@@ -75,7 +86,14 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--tracker-dir", type=Path, default=DEFAULT_TRK_DIR)
     p.add_argument("--traj-dir", type=Path, default=DEFAULT_TRAJ_DIR)
     p.add_argument("--trackers", nargs="+", default=TRACKERS, choices=TRACKERS)
-    p.add_argument("--out", type=Path, default=DEFAULT_OUT)
+    p.add_argument("--out", type=Path, default=None,
+                   help=f"Output CSV. Default: {DEFAULT_OUT} (GT mode) or "
+                        f"{DEFAULT_GTFREE_OUT.name} (--gt-free-clips).")
+    p.add_argument("--gt-free-clips", nargs="+", default=None,
+                   help="Clip stems to score WITHOUT ground truth (Axis-3 "
+                        "plausibility + self-consistency proxies only). Use for "
+                        "new footage that has no GT; reads the clip's calibration "
+                        "+ each tracker's linked output.")
     p.add_argument("--auto-extract", dest="auto_extract", action="store_true",
                    default=True, help="Extract any missing trajectory npz (default).")
     p.add_argument("--no-auto-extract", dest="auto_extract", action="store_false",
@@ -132,6 +150,9 @@ def main() -> int:
     params = TrajParams(a_max=args.a_max, speed_cap=args.speed_cap,
                         match_gate=args.match_gate)
 
+    if args.gt_free_clips:
+        return run_gt_free(args, params)
+
     gt_files = sorted(args.gt_dir.glob("*.gt.txt"))
     if not gt_files:
         logger.error("No ground-truth files (*.gt.txt) in %s", args.gt_dir)
@@ -177,20 +198,63 @@ def main() -> int:
             if agg:
                 rows.append(agg)
 
-    # header: identity columns + metric columns present, preferred order first
-    extra = [k for k in rows[0] if k not in ("clip", "source", "variant")
-             and k not in METRIC_COLS]
-    metric_header = [k for k in METRIC_COLS if any(k in r for r in rows)] + extra
-    header = ["clip", "source", "variant"] + metric_header
+    write_csv(rows, args.out or DEFAULT_OUT, METRIC_COLS)
+    return 0
 
-    args.out.parent.mkdir(parents=True, exist_ok=True)
-    with args.out.open("w", newline="", encoding="utf-8") as f:
+
+def run_gt_free(args: argparse.Namespace, params: TrajParams) -> int:
+    """Score new clips with NO ground truth: Axis-3 + self-consistency proxies."""
+    clips = args.gt_free_clips
+    logger.info("GT-free scoring of %d clip(s): %s", len(clips), ", ".join(clips))
+    rows: list[dict] = []
+    for clip in clips:
+        calib = PROJECT_ROOT / f"data/video_annotations/calibration/{clip}.json"
+        if not calib.exists():
+            logger.error("no calibration for %s (%s) -- run 00_calibrate.py first; "
+                         "skipping", clip, calib.name)
+            continue
+        for tracker in args.trackers:
+            pr_npz = args.traj_dir / f"{clip}.{tracker}.linked.npz"
+            pr_txt = args.tracker_dir / f"{clip}.{tracker}.linked.txt"
+            if not ensure_traj(pr_npz, pr_txt, clip, args.auto_extract):
+                continue
+            res = evaluate_gt_free(pr_npz, params)
+            for variant, mt in res.items():
+                rows.append(dict(clip=clip, source=tracker, variant=variant, **mt))
+            sm = res["smoothed"]
+            logger.info("%-22s %-10s  tracks=%d seg/trk=%.2f teleport=%d  "
+                        "accel_ok(raw)=%.2f jerk=%.1f",
+                        clip, tracker, sm["sc_n_tracks"], sm["sc_seg_per_track"],
+                        sm["sc_teleport_breaks"], res["raw"]["a3_frac_accel_ok"],
+                        sm["a3_jerk_mean_mps3"])
+
+    if not rows:
+        logger.error("No trajectories scored (missing calibration or linked outputs?).")
+        return 1
+
+    for source in args.trackers:
+        for variant in ("smoothed", "raw"):
+            agg = aggregate(rows, source, variant)
+            if agg:
+                rows.append(agg)
+
+    write_csv(rows, args.out or DEFAULT_GTFREE_OUT, GTFREE_COLS)
+    return 0
+
+
+def write_csv(rows: list[dict], out: Path, preferred: list[str]) -> None:
+    """Write tidy CSV: clip/source/variant + preferred metric cols, extras after."""
+    extra = [k for k in rows[0] if k not in ("clip", "source", "variant")
+             and k not in preferred]
+    metric_header = [k for k in preferred if any(k in r for r in rows)] + extra
+    header = ["clip", "source", "variant"] + metric_header
+    out.parent.mkdir(parents=True, exist_ok=True)
+    with out.open("w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=header)
         w.writeheader()
         for r in rows:
             w.writerow({k: r.get(k, "") for k in header})
-    logger.info("Wrote %d rows -> %s", len(rows), args.out)
-    return 0
+    logger.info("Wrote %d rows -> %s", len(rows), out)
 
 
 if __name__ == "__main__":

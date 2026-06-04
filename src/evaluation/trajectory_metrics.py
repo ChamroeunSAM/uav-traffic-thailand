@@ -353,3 +353,54 @@ def evaluate_plausibility_only(npz: str | Path,
     return {variant: {f"a3_{k}": v
                       for k, v in axis3_plausibility(data, idx, meta, variant, p).items()}
             for variant in ("smoothed", "raw")}
+
+
+# ---------------------------------------------------------------------------
+# Self-consistency proxies (GT-free identity signal)
+# ---------------------------------------------------------------------------
+def selfconsistency_proxies(data: np.ndarray, idx: dict[str, int], meta: dict) -> dict:
+    """GT-free track-quality signals that stand in for Axis 1 when no GT exists.
+
+    With no ground truth we cannot measure completeness/accuracy, but a clean
+    tracker still leaves footprints: few tracks per real vehicle, long
+    uninterrupted lives, and no physically-impossible jumps. These come for free
+    from the extraction (``meta`` + the segment column):
+      - seg_per_track: segments the extractor had to cut a track into (gap /
+        teleport splits). 1.0 is ideal; >1 means the track fragmented.
+      - teleport_breaks: impossible position jumps split out (identity-error
+        proxy) -- more is worse association.
+      - mean/median track duration (s): longer-lived tracks = better persistence.
+    Lower seg_per_track / teleport_breaks and higher durations are better.
+    """
+    frames = data[:, idx["frame"]].astype(int)
+    tids = data[:, idx["track_id"]].astype(int)
+    fps = float(meta.get("fps", 29.97))
+    durs = [(frames[tids == t].max() - frames[tids == t].min() + 1) / fps
+            for t in np.unique(tids)]
+    n_tracks = int(meta.get("n_tracks") or len(np.unique(tids)))
+    n_seg = int(meta.get("n_segments") or len(np.unique(data[:, idx["seg"]])))
+    return {
+        "sc_n_tracks": n_tracks,
+        "sc_n_segments": n_seg,
+        "sc_seg_per_track": (n_seg / n_tracks) if n_tracks else float("nan"),
+        "sc_teleport_breaks": int(meta.get("teleport_breaks", 0)),
+        "sc_mean_track_dur_s": float(np.mean(durs)) if durs else float("nan"),
+        "sc_median_track_dur_s": float(np.median(durs)) if durs else float("nan"),
+        "sc_gap_filled_frac": float(data[:, idx["gap_filled"]].mean()) if data.size else float("nan"),
+    }
+
+
+def evaluate_gt_free(npz: str | Path, p: TrajParams | None = None) -> dict[str, dict]:
+    """GT-free scoring: Axis-3 plausibility + self-consistency proxies, per variant.
+
+    Used to rank trackers on brand-new footage that has no ground truth. The
+    self-consistency block is variant-independent (it depends on segmentation,
+    not smoothing), so it repeats across the smoothed/raw rows.
+    """
+    p = p or TrajParams()
+    data, idx, meta = load_traj(npz)
+    sc = selfconsistency_proxies(data, idx, meta)
+    return {variant: {
+        **{f"a3_{k}": v for k, v in axis3_plausibility(data, idx, meta, variant, p).items()},
+        **{k: v for k, v in sc.items()},
+    } for variant in ("smoothed", "raw")}
