@@ -19,6 +19,7 @@ Each writes a PNG (inspection) and a PDF (manuscript). Regenerate, e.g.:
 | `F6b_jerk_smoothness`         | Jerk ECDF (Axis 3), + GT ceiling          | 4 labelled clips, smoothed | ready |
 | `F7_trajectories_..._gt`      | World-coord spaghetti, speed-coloured     | roundabout GT           | ready |
 | `F9_gtfree_ranking`           | GT-free ranking, 2×2 bars                 | 2 new 120 m clips       | ready |
+| `F8_calibration_<clip>`       | GCP quad + reprojected 10 m grid on frame | frame + GCP + homography| ready |
 
 F6a/F6b are matched panels (shared axes/legend) for manual side-by-side paneling.
 
@@ -31,4 +32,3 @@ Notes:
 Not generated (optional / needs extra input):
 - **F2 scene gallery** — reference frames + detection/track overlays (semi-manual).
 - **F3 detector accuracy-vs-cost** — needs an inference-latency/FPS timing pass.
-- **F8 calibration overlay** — reference frame with the GCP quad drawn.

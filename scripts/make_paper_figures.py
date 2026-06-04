@@ -286,6 +286,87 @@ def fig_gtfree():
     _save(fig, "F9_gtfree_ranking")
 
 
+# --------------------------------------------------------------------------- #
+# F8 -- calibration overlay: GCP quad + reprojected metric grid on a frame
+# --------------------------------------------------------------------------- #
+CALIB_DIR = PROJECT_ROOT / "data/video_annotations/calibration"
+FRAME_DIR = CALIB_DIR / "frames"
+GCP_DIR = PROJECT_ROOT / "configs/calibration"
+
+
+def _world_to_pixel(world_xy, Hinv):
+    pts = np.asarray(world_xy, dtype=float).reshape(-1, 2)
+    hom = np.hstack([pts, np.ones((pts.shape[0], 1))])
+    proj = (Hinv @ hom.T).T
+    return proj[:, :2] / proj[:, 2:3]
+
+
+def fig_calibration(clip="120_m_DJI_0041_5min", step=10.0):
+    import json
+    import yaml
+
+    img = plt.imread(FRAME_DIR / f"{clip}.png")
+    H_img, W_img = img.shape[:2]
+    H = np.asarray(json.loads((CALIB_DIR / f"{clip}.json").read_text())["H"],
+                   dtype=float).reshape(3, 3)
+    Hinv = np.linalg.inv(H)
+    spec = yaml.safe_load((GCP_DIR / f"{clip}.gcp.yaml").read_text())
+    pts = [(p["name"], p["pixel"]) for p in spec["points"]]
+
+    # world extent from the image corners (near-nadir -> whole frame ~ ground)
+    corners = np.array([[0, 0], [W_img, 0], [W_img, H_img], [0, H_img]], dtype=float)
+    hom = np.hstack([corners, np.ones((4, 1))])
+    cw = (H @ hom.T).T
+    cw = cw[:, :2] / cw[:, 2:3]
+    x0, y0 = np.floor(cw[:, 0].min() / step) * step, np.floor(cw[:, 1].min() / step) * step
+    x1, y1 = np.ceil(cw[:, 0].max() / step) * step, np.ceil(cw[:, 1].max() / step) * step
+
+    fig, ax = plt.subplots(figsize=(8.6, 4.9))
+    ax.imshow(img)
+
+    # reprojected metric grid (constant-X and constant-Y world lines)
+    gx = np.arange(x0, x1 + step, step)
+    gy = np.arange(y0, y1 + step, step)
+    tline = np.linspace(y0, y1, 120)
+    for X in gx:
+        px = _world_to_pixel(np.column_stack([np.full_like(tline, X), tline]), Hinv)
+        ax.plot(px[:, 0], px[:, 1], color="#00E5FF", lw=0.5, alpha=0.55)
+    tline = np.linspace(x0, x1, 120)
+    for Y in gy:
+        px = _world_to_pixel(np.column_stack([tline, np.full_like(tline, Y)]), Hinv)
+        ax.plot(px[:, 0], px[:, 1], color="#00E5FF", lw=0.5, alpha=0.55)
+
+    import matplotlib.patheffects as pe
+    stroke = [pe.withStroke(linewidth=2.4, foreground="black")]
+
+    # GCP quad + points
+    quad = np.array([p[1] for p in pts] + [pts[0][1]], dtype=float)
+    ax.plot(quad[:, 0], quad[:, 1], color="#FFD400", lw=2.0, zorder=4)
+    for name, (u, v) in pts:
+        ax.scatter([u], [v], s=70, facecolors="#FF1744", edgecolors="white",
+                   linewidths=1.2, zorder=5)
+        ax.annotate(name, (u, v), textcoords="offset points", xytext=(7, 6),
+                    color="white", fontsize=10, fontweight="bold",
+                    zorder=6).set_path_effects(stroke)
+
+    # annotate the two reference edges with their known world length
+    world = [np.asarray(p["world"], dtype=float) for p in spec["points"]]
+    pix = [np.asarray(p[1], dtype=float) for p in pts]
+    for a, b in ((0, 1), (0, 3)):
+        L = float(np.linalg.norm(world[a] - world[b]))
+        mid = (pix[a] + pix[b]) / 2
+        ax.annotate(f"{L:.0f} m", mid, textcoords="offset points", xytext=(0, -4),
+                    color="#FFD400", fontsize=11, fontweight="bold", ha="center",
+                    zorder=6).set_path_effects(stroke)
+
+    ax.set_xlim(0, W_img)
+    ax.set_ylim(H_img, 0)
+    ax.set_xticks([]); ax.set_yticks([])
+    ax.set_title(f"Pixel-to-world calibration: GCP quad (yellow) + reprojected "
+                 f"{step:.0f} m grid (cyan)\n({clip.replace('_', ' ')})", fontsize=11)
+    _save(fig, f"F8_calibration_{clip}")
+
+
 FIGURES = {
     "accel": fig_accel,
     "jerk": fig_jerk,
@@ -293,6 +374,7 @@ FIGURES = {
     "spaghetti": fig_spaghetti,
     "boxvstraj": fig_boxvstraj,
     "gtfree": fig_gtfree,
+    "calibration": fig_calibration,
 }
 
 
