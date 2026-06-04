@@ -367,6 +367,78 @@ def fig_calibration(clip="120_m_DJI_0041_5min", step=10.0):
     _save(fig, f"F8_calibration_{clip}")
 
 
+# --------------------------------------------------------------------------- #
+# F2 -- scene gallery: six clips at a populated frame with box overlays
+# --------------------------------------------------------------------------- #
+VIDEO_DIR = PROJECT_ROOT / "data/video_clips"
+GT_DIR = PROJECT_ROOT / "data/video_annotations/ground_truth"
+TRK_DIR = PROJECT_ROOT / "data/video_annotations/tracker_outputs"
+CLS_COLOR = {0: "#E41A1C", 1: "#4DAF4A", 2: "#377EB8"}  # LV / MV / SV
+CLS_NAME = {0: "LV", 1: "MV", 2: "SV"}
+
+# (clip, scene label, box source file, source tag, frame index)
+SCENE_SPECS = [
+    ("100_m_DJI_0001_1min", "Intersection (100 m)",
+     GT_DIR / "100_m_DJI_0001_1min.gt.txt", "GT", 1114),
+    ("100_m_DJI_0054_1min", "Dense intersection (100 m)",
+     GT_DIR / "100_m_DJI_0054_1min.gt.txt", "GT", 540),
+    ("120_m_DJI_0006_1min", "Roundabout (120 m)",
+     GT_DIR / "120_m_DJI_0006_1min.gt.txt", "GT", 907),
+    ("120_m_DJI_0047_1min", "Suburban intersection (120 m)",
+     GT_DIR / "120_m_DJI_0047_1min.gt.txt", "GT", 675),
+    ("120_m_DJI_0001_5min", "Urban intersection (120 m, GT-free)",
+     TRK_DIR / "120_m_DJI_0001_5min.bytetrack.linked.txt", "ByteTrack", 2899),
+    ("120_m_DJI_0041_5min", "Arterial intersection (120 m, GT-free)",
+     TRK_DIR / "120_m_DJI_0041_5min.bytetrack.linked.txt", "ByteTrack", 2891),
+]
+
+
+def _boxes_at(path: Path, frame: int):
+    out = []
+    for ln in path.read_text(encoding="utf-8").splitlines():
+        if not ln.strip():
+            continue
+        a = ln.split(",")
+        if int(a[0]) != frame:
+            continue
+        x, y, w, h = (float(a[i]) for i in range(2, 6))
+        cls = int(float(a[7])) if len(a) > 7 else 1
+        out.append((x, y, w, h, cls))
+    return out
+
+
+def fig_scenes():
+    import cv2
+    from matplotlib.patches import Rectangle
+
+    fig, axes = plt.subplots(2, 3, figsize=(12.6, 5.0))
+    for ax, (clip, label, src, tag, frame) in zip(axes.flat, SCENE_SPECS):
+        cap = cv2.VideoCapture(str(VIDEO_DIR / f"{clip}.mp4"))
+        cap.set(cv2.CAP_PROP_POS_FRAMES, frame)
+        ok, img = cap.read()
+        cap.release()
+        if not ok:
+            ax.set_visible(False)
+            continue
+        ax.imshow(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
+        boxes = _boxes_at(src, frame)
+        for x, y, w, h, cls in boxes:
+            ax.add_patch(Rectangle((x, y), w, h, fill=False,
+                                   edgecolor=CLS_COLOR.get(cls, "#FFFFFF"),
+                                   linewidth=0.6))
+        ax.set_title(f"{label}\n{tag}, {len(boxes)} vehicles", fontsize=9.5)
+        ax.set_xticks([]); ax.set_yticks([])
+
+    handles = [plt.Line2D([0], [0], color=CLS_COLOR[c], lw=2, label=CLS_NAME[c])
+               for c in (0, 1, 2)]
+    fig.legend(handles=handles, loc="lower center", ncol=3, frameon=False,
+               bbox_to_anchor=(0.5, -0.02), fontsize=10)
+    fig.suptitle("UAV traffic scenes with vehicle detections "
+                 "(box colour = class)", fontsize=12)
+    fig.tight_layout(rect=[0, 0.02, 1, 0.96])
+    _save(fig, "F2_scene_gallery")
+
+
 FIGURES = {
     "accel": fig_accel,
     "jerk": fig_jerk,
@@ -375,6 +447,7 @@ FIGURES = {
     "boxvstraj": fig_boxvstraj,
     "gtfree": fig_gtfree,
     "calibration": fig_calibration,
+    "scenes": fig_scenes,
 }
 
 

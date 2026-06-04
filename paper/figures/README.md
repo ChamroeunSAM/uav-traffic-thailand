@@ -13,6 +13,7 @@ Each writes a PNG (inspection) and a PDF (manuscript). Regenerate, e.g.:
 | File | Figure | Basis | Status |
 |------|--------|-------|--------|
 | `F1_pipeline_framework.txt`   | Pipeline / framework spec (draw manually) | —                       | text spec |
+| `F2_scene_gallery`            | 6 scenes + box overlays (class-coloured)  | videos + GT/ByteTrack   | ready (verify scene labels) |
 | `F4_box_vs_trajectory`        | HOTA vs trajectory plausibility           | 4 labelled clips (Stage3+4) | ready |
 | `F5_smoothing_effect`         | Raw vs Savitzky–Golay speed/accel, 1 track| roundabout GT (seg 26)  | ready |
 | `F6a_accel_plausibility`      | Acceleration ECDF (Axis 3), + GT ceiling  | 4 labelled clips, raw   | ready |
@@ -30,5 +31,4 @@ Notes:
 - Colour/marker per tracker is consistent across all figures.
 
 Not generated (optional / needs extra input):
-- **F2 scene gallery** — reference frames + detection/track overlays (semi-manual).
 - **F3 detector accuracy-vs-cost** — needs an inference-latency/FPS timing pass.
