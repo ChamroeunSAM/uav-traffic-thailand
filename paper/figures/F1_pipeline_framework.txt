@@ -1,0 +1,130 @@
+================================================================================
+F1 — PIPELINE / RESEARCH FRAMEWORK  (draw manually)
+UAV traffic detection + trajectory-quality benchmark
+================================================================================
+
+PURPOSE OF THE FIGURE
+A single schematic that takes the reader from raw UAV footage to the three-axis
+trajectory-quality verdict, making clear (a) the "detect once, track many"
+design, (b) the dual raw/linked evaluation, and (c) that the trajectory-quality
+framework is the novel contribution and works WITH or WITHOUT ground truth.
+
+Suggested layout: left-to-right swimlane with 5 stage-boxes across the top, the
+data artifacts flowing between them, and the 3-axis evaluation broken out as a
+highlighted panel on the right. Use one accent colour for the novel parts
+(Stage 4 + GT-free path).
+
+--------------------------------------------------------------------------------
+TOP-LEVEL FLOW (5 stages, left -> right)
+--------------------------------------------------------------------------------
+
+[ STAGE 0 ]        [ STAGE 1 ]         [ STAGE 2 ]          [ STAGE 3 ]          [ STAGE 4 ]
+ Data prep   --->   Detector     --->   Video GT      --->   Tracker      --->   TRAJECTORY
+                    benchmark           (semi-auto)          benchmark           QUALITY  *novel*
+
+--------------------------------------------------------------------------------
+STAGE 0 — DATA PREPARATION
+--------------------------------------------------------------------------------
+INPUT:   Roboflow YOLOv8 exports, two altitudes (100 m, 120 m)
+PROCESS: altitude-prefix -> stratified 70/15/15 merge (seed 42)
+OUTPUT:  unified dataset (3,010 frames; classes LV / MV / SV)
+NOTE:    one combined train set, evaluation stratified by altitude (Strategy C)
+
+--------------------------------------------------------------------------------
+STAGE 1 — DETECTOR BENCHMARK
+--------------------------------------------------------------------------------
+INPUT:   unified dataset @ 1280x1280
+PROCESS: 6 detectors x 5 seeds
+         (YOLOv9-m, YOLOv10-m, YOLO11-m, YOLO12-m, YOLO26-m, RT-DETR-L)
+OUTPUT:  mAP table (-> Table T2);  WINNER = RT-DETR-L
+ARROW OUT: the winning detector weights feed Stages 2 & 3
+           (label the arrow "RT-DETR-L weights")
+
+--------------------------------------------------------------------------------
+STAGE 2 — SEMI-AUTOMATIC VIDEO GROUND TRUTH
+--------------------------------------------------------------------------------
+INPUT:   4 held-out clips  +  RT-DETR-L
+PROCESS: RT-DETR-L + ByteTrack pseudo-tracks
+         -> offline 3-pass linker (fragment stitching)
+         -> human correction in CVAT (5 passes)
+OUTPUT:  ground-truth tracks for 4 clips  (-> used by Stage 3 scoring)
+NOTE:    label this the ONLY human-in-the-loop stage
+
+--------------------------------------------------------------------------------
+STAGE 3 — TRACKER BENCHMARK   ("detect once, track four times")
+--------------------------------------------------------------------------------
+INPUT:   RT-DETR-L detections (computed ONCE per clip, cached)  +  Stage 2 GT
+PROCESS: same detections -> 4 trackers
+         (ByteTrack, BoT-SORT, OC-SORT, Deep OC-SORT)
+         each scored on TWO arms:  raw   AND   + offline linker
+         scoring = HOTA / MOTA / IDF1 (TrackEval)
+OUTPUT:  tracker metrics table (-> Table T4)
+KEY VISUAL: a single "detections" artifact fanning out to 4 trackers, each
+            splitting into raw / linked — this shows the controlled comparison
+            (only the association algorithm varies).
+
+--------------------------------------------------------------------------------
+STAGE 4 — TRAJECTORY QUALITY  *** NOVEL CONTRIBUTION — highlight ***
+--------------------------------------------------------------------------------
+INPUT:   each tracker's LINKED tracks (pixel space)
+PROCESS (sub-pipeline, draw as a vertical mini-flow):
+   (a) CALIBRATION   per-clip ground-plane homography from road-marking GCPs
+                     -> pixel (u,v)  =>  world (X,Y) metres   (-> Table T7)
+   (b) EXTRACTION    project centres to world; split at long gaps /
+                     impossible jumps; interpolate short gaps
+   (c) SMOOTHING     Savitzky-Golay (reported pre/post = studied variable)
+   (d) KINEMATICS    speed, acceleration, heading, jerk  (dt = 1/29.97 s)
+OUTPUT:  world-coordinate trajectories  ->  THREE-AXIS EVALUATION (panel below)
+
+--------------------------------------------------------------------------------
+THE THREE-AXIS EVALUATION  (highlighted panel on the right)
+--------------------------------------------------------------------------------
+Feed the world trajectories into three parallel evaluation axes:
+
+  AXIS 1 — IDENTITY PERSISTENCE        (needs GT)
+           completeness, fragments/GT track, ID switches
+           [largely confirms Stage 3 box metrics]
+
+  AXIS 2 — KINEMATIC ACCURACY vs GT    (needs GT)
+           ADE / FDE / position-RMSE, speed MAE, heading error
+           [invisible to box metrics: jitter dominates differentiated speed]
+
+  AXIS 3 — INTRINSIC PLAUSIBILITY      (GT-FREE)  *** reusable core ***
+           accel within physical bound, jerk, curvature, speed sanity
+           [scores trajectories where NO ground truth exists]
+
+GT REFERENCE CEILING: the GT tracks are run through the SAME Stage-4 pipeline
+and reported as an upper bound (dashed box feeding the same 3 axes).
+
+OUTPUTS: Tables T5 (3-axis), T5b (smoothing effect).
+
+--------------------------------------------------------------------------------
+GT-FREE GENERALISATION PATH   (draw as a branch off Stage 4, accent colour)
+--------------------------------------------------------------------------------
+NEW UNLABELLED CLIPS  ->  Stage 1 detector + Stage 3 trackers + linker
+                       ->  Stage 4 calibration + extraction
+                       ->  AXIS 3 (plausibility) + self-consistency proxies
+                           (segments/track, teleport splits, track duration)
+OUTPUT:  GT-free tracker ranking (-> Table T6)
+MESSAGE TO CONVEY: the framework needs no ground truth here — this is the
+                   Paper-2 (state-space modelling) data-quality use case.
+
+--------------------------------------------------------------------------------
+ARROWS / LEGEND TO INCLUDE
+--------------------------------------------------------------------------------
+- solid arrow  = data/artifact flow
+- dashed arrow = "reference ceiling" (GT through the same pipeline)
+- accent colour = novel components (Stage 4 + 3-axis panel + GT-free branch)
+- mark the single human-in-the-loop step (Stage 2 CVAT correction) with an icon
+- mark "computed once, reused" on the Stage-3 detections artifact
+
+--------------------------------------------------------------------------------
+ONE-LINE CAPTION (draft)
+--------------------------------------------------------------------------------
+"Overview of the benchmark. A single detector (RT-DETR-L, selected in Stage 1)
+drives semi-automatic ground truth (Stage 2) and a controlled four-tracker
+comparison (Stage 3). Stage 4 converts the resulting tracks to metric world
+coordinates and evaluates them along three axes — identity persistence,
+kinematic accuracy, and intrinsic physical plausibility — the last of which is
+ground-truth-free and generalises to new, unlabelled footage."
+================================================================================
