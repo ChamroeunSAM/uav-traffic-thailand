@@ -490,13 +490,45 @@ def fig_detectors():
     _save(fig, "F3_detector_accuracy_speed")
 
 
+# --------------------------------------------------------------------------- #
+# F7-overlay -- trajectories projected back onto a real video frame
+# --------------------------------------------------------------------------- #
+def fig_spaghetti_overlay(clip="120_m_DJI_0006_1min", source="gt"):
+    import json
+    img = plt.imread(FRAME_DIR / f"{clip}.png")
+    Hh, Ww = img.shape[:2]
+    H = np.asarray(json.loads((CALIB_DIR / f"{clip}.json").read_text())["H"],
+                   dtype=float).reshape(3, 3)
+    Hinv = np.linalg.inv(H)
+    npz = (TRAJ / f"{clip}.gt.npz") if source == "gt" else \
+          (TRAJ / f"{clip}.{source}.linked.npz")
+    data, idx, meta = load_traj(npz)
+    world = data[:, [idx["xs_m"], idx["ys_m"]]]
+    spd = data[:, idx["speed_mps"]] * 3.6
+    px = _world_to_pixel(world, Hinv)
+
+    fig, ax = plt.subplots(figsize=(9.0, 9.0 * Hh / Ww))
+    ax.imshow(img)
+    sc = ax.scatter(px[:, 0], px[:, 1], c=spd, s=1.4, cmap="turbo", vmin=0,
+                    vmax=float(np.percentile(spd, 98)), alpha=0.5, linewidths=0)
+    cb = fig.colorbar(sc, ax=ax, shrink=0.6, aspect=30, pad=0.015)
+    cb.set_label("Speed (km/h)")
+    ax.set_xlim(0, Ww); ax.set_ylim(Hh, 0)
+    ax.set_xticks([]); ax.set_yticks([])
+    _save(fig, f"F7_trajectories_{clip}_{source}")
+
+
 FIGURES = {
     "accel": fig_accel,
     "jerk": fig_jerk,
     "smoothing": fig_smoothing,
-    "spaghetti": fig_spaghetti,
-    "spaghetti_0001_5min": lambda: fig_spaghetti("120_m_DJI_0001_5min", "botsort", None),
-    "spaghetti_0041_5min": lambda: fig_spaghetti("120_m_DJI_0041_5min", "botsort", None),
+    # F7 = post-linker trajectories overlaid (speed-coloured) on a real frame
+    "f7_0001_1min": lambda: fig_spaghetti_overlay("100_m_DJI_0001_1min", "gt"),
+    "f7_0054_1min": lambda: fig_spaghetti_overlay("100_m_DJI_0054_1min", "gt"),
+    "f7_0006_1min": lambda: fig_spaghetti_overlay("120_m_DJI_0006_1min", "gt"),
+    "f7_0047_1min": lambda: fig_spaghetti_overlay("120_m_DJI_0047_1min", "gt"),
+    "f7_0001_5min": lambda: fig_spaghetti_overlay("120_m_DJI_0001_5min", "botsort"),
+    "f7_0041_5min": lambda: fig_spaghetti_overlay("120_m_DJI_0041_5min", "botsort"),
     "boxvstraj": fig_boxvstraj,
     "gtfree": fig_gtfree,
     "calibration": fig_calibration,

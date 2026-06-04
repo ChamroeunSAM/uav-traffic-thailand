@@ -18,7 +18,7 @@ Each writes a PNG (inspection) and a PDF (manuscript). Regenerate, e.g.:
 | `F5_smoothing_effect`         | Raw vs Savitzky–Golay speed/accel, 1 track| roundabout GT (seg 26)  | ready |
 | `F6a_accel_plausibility`      | Acceleration ECDF (Axis 3), + GT ceiling  | 4 labelled clips, raw   | ready |
 | `F6b_jerk_smoothness`         | Jerk ECDF (Axis 3), + GT ceiling          | 4 labelled clips, smoothed | ready |
-| `F7_trajectories_..._gt`      | World-coord spaghetti, speed-coloured     | roundabout GT           | ready |
+| `F7_trajectories_<clip>_<src>` | Post-linker trajectories overlaid on a real frame (speed-coloured) | all 6 clips (GT 1-min + BoT-SORT 5-min) | ready |
 | `F9_gtfree_ranking`           | GT-free ranking, 2×2 bars                 | 2 new 120 m clips       | ready |
 | `F8_calibration_<clip>`       | GCP quad + reprojected 10 m grid on frame | frame + GCP + homography| ready |
 
