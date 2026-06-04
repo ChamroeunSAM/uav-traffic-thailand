@@ -523,8 +523,18 @@ def fig_track_compare(clip, trackers=("botsort", "ocsort"),
     """Two stacked panels: each tracker's linked tracks drawn as connected
     pixel-space polylines over a frame. Identity errors (impossible jumps) show
     as long lines crossing the scene -- the noisy tracker has many more."""
+    import json
     img = plt.imread(FRAME_DIR / f"{clip}.png")
     Hh, Ww = img.shape[:2]
+    H = np.asarray(json.loads((CALIB_DIR / f"{clip}.json").read_text())["H"],
+                   dtype=float).reshape(3, 3)
+    dt, max_speed = 1.0 / 29.97, 42.0   # impossible-jump cap (~151 km/h), matches extraction
+
+    def to_world(uv):
+        hom = np.hstack([uv, np.ones((uv.shape[0], 1))])
+        proj = (H @ hom.T).T
+        return proj[:, :2] / proj[:, 2:3]
+
     fig, axes = plt.subplots(2, 1, figsize=(7.6, 2 * 7.6 * Hh / Ww + 0.3))
     for ax, trk, lab in zip(axes, trackers, labels):
         ax.imshow(img)
@@ -536,11 +546,25 @@ def fig_track_compare(clip, trackers=("botsort", "ocsort"),
             fr, tid = int(a[0]), int(a[1])
             x, y, w, h = (float(a[i]) for i in range(2, 6))
             tracks.setdefault(tid, []).append((fr, x + w / 2, y + h / 2))
+        n_jump = 0
         for tid, pts in tracks.items():
             pts.sort()
-            ax.plot([p[1] for p in pts], [p[2] for p in pts],
-                    color="#0050B0", lw=0.4, alpha=0.35, solid_capstyle="round")
-        ax.set_title(f"{lab}  ({len(tracks)} tracks)", fontsize=11)
+            fr = np.array([p[0] for p in pts], dtype=float)
+            uv = np.array([[p[1], p[2]] for p in pts], dtype=float)
+            keep = np.sort(np.unique(fr, return_index=True)[1])  # dedupe frames
+            fr, uv = fr[keep], uv[keep]
+            ax.plot(uv[:, 0], uv[:, 1], color="#0050B0", lw=0.4, alpha=0.30,
+                    solid_capstyle="round")
+            if len(fr) > 1:
+                df = np.diff(fr)
+                implied = np.linalg.norm(np.diff(to_world(uv), axis=0), axis=1) / (df * dt)
+                # ID jump = impossible speed across near-consecutive frames (not a
+                # long occlusion gap); matches the extraction's teleport definition
+                for j in np.where((implied > max_speed) & (df <= 15))[0]:
+                    ax.plot(uv[j:j + 2, 0], uv[j:j + 2, 1], color="#E51010",
+                            lw=0.8, alpha=0.7, zorder=5)
+                    n_jump += 1
+        ax.set_title(f"{lab}  ({len(tracks)} tracks, {n_jump} ID jumps)", fontsize=11)
         ax.set_xlim(0, Ww); ax.set_ylim(Hh, 0)
         ax.set_xticks([]); ax.set_yticks([])
     fig.tight_layout()
