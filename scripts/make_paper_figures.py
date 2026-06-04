@@ -518,8 +518,39 @@ def fig_spaghetti_overlay(clip="120_m_DJI_0006_1min", source="gt"):
     _save(fig, f"F7_trajectories_{clip}_{source}")
 
 
+def fig_track_compare(clip, trackers=("botsort", "ocsort"),
+                      labels=("BoT-SORT (clean)", "OC-SORT (noisy)")):
+    """Two stacked panels: each tracker's linked tracks drawn as connected
+    pixel-space polylines over a frame. Identity errors (impossible jumps) show
+    as long lines crossing the scene -- the noisy tracker has many more."""
+    img = plt.imread(FRAME_DIR / f"{clip}.png")
+    Hh, Ww = img.shape[:2]
+    fig, axes = plt.subplots(2, 1, figsize=(7.6, 2 * 7.6 * Hh / Ww + 0.3))
+    for ax, trk, lab in zip(axes, trackers, labels):
+        ax.imshow(img)
+        tracks: dict[int, list] = {}
+        for ln in (TRK_DIR / f"{clip}.{trk}.linked.txt").read_text().splitlines():
+            if not ln.strip():
+                continue
+            a = ln.split(",")
+            fr, tid = int(a[0]), int(a[1])
+            x, y, w, h = (float(a[i]) for i in range(2, 6))
+            tracks.setdefault(tid, []).append((fr, x + w / 2, y + h / 2))
+        for tid, pts in tracks.items():
+            pts.sort()
+            ax.plot([p[1] for p in pts], [p[2] for p in pts],
+                    color="#0050B0", lw=0.4, alpha=0.35, solid_capstyle="round")
+        ax.set_title(f"{lab}  ({len(tracks)} tracks)", fontsize=11)
+        ax.set_xlim(0, Ww); ax.set_ylim(Hh, 0)
+        ax.set_xticks([]); ax.set_yticks([])
+    fig.tight_layout()
+    _save(fig, f"F7compare_{clip}")
+
+
 FIGURES = {
     "accel": fig_accel,
+    "compare_0041_5min": lambda: fig_track_compare("120_m_DJI_0041_5min"),
+    "compare_0001_5min": lambda: fig_track_compare("120_m_DJI_0001_5min"),
     "jerk": fig_jerk,
     "smoothing": fig_smoothing,
     # F7 = post-linker trajectories overlaid (speed-coloured) on a real frame
