@@ -439,6 +439,51 @@ def fig_scenes():
     _save(fig, "F2_scene_gallery")
 
 
+# --------------------------------------------------------------------------- #
+# F3 -- detector accuracy vs inference cost (Pareto)
+# --------------------------------------------------------------------------- #
+STAGE1_AGG = PROJECT_ROOT / "results/stage1/aggregated.csv"
+STAGE1_SPEED = PROJECT_ROOT / "results/stage1/inference_speed.csv"
+DET_DISPLAY = {"yolov9m": "YOLOv9-m", "yolov10m": "YOLOv10-m", "yolo11m": "YOLO11-m",
+               "yolo12m": "YOLO12-m", "yolo26m": "YOLO26-m", "rtdetr_l": "RT-DETR-L"}
+
+
+def fig_detectors():
+    acc = {}
+    for r in csv.DictReader(STAGE1_AGG.open(encoding="utf-8")):
+        base = r["model_name"].replace(".pt", "").replace("-", "_")
+        acc[base] = (float(r["overall_mAP50_95_mean"]), float(r["overall_mAP50_mean"]))
+    speed = {r["detector"]: float(r["fps"])
+             for r in csv.DictReader(STAGE1_SPEED.open(encoding="utf-8"))}
+
+    pts = [(d, speed[d], acc[d][0]) for d in DET_DISPLAY if d in speed and d in acc]
+    fig, ax = plt.subplots(figsize=(6.6, 4.8))
+    # Pareto frontier (upper-right is best): scanning from fastest, keep points
+    # whose accuracy exceeds everything faster than them.
+    front, best_acc = [], -1.0
+    for d, fps, a in sorted(pts, key=lambda p: -p[1]):  # high FPS first
+        if a > best_acc:
+            front.append((fps, a)); best_acc = a
+    front.sort()
+    ax.plot([f for f, _ in front], [a for _, a in front],
+            color="0.6", ls="--", lw=1.0, zorder=1, label="Pareto frontier")
+
+    for d, fps, a in pts:
+        is_rt = d == "rtdetr_l"
+        ax.scatter([fps], [a], s=150 if is_rt else 110,
+                   c="#D55E00" if is_rt else "#0072B2",
+                   marker="*" if is_rt else "o",
+                   edgecolors="black", linewidths=0.8, zorder=4)
+        ax.annotate(DET_DISPLAY[d], (fps, a), textcoords="offset points",
+                    xytext=(8, 6 if d != "yolo12m" else -12), fontsize=9.5)
+    ax.set_xlabel("inference speed (FPS, 1280 px, batch 1, FP32, RTX 5090)  →  faster")
+    ax.set_ylabel("mAP@.5:.95  (overall)  →  more accurate")
+    ax.set_title("Detector accuracy vs. inference cost")
+    ax.legend(loc="lower left", fontsize=9, frameon=True)
+    ax.grid(True, alpha=0.25)
+    _save(fig, "F3_detector_accuracy_speed")
+
+
 FIGURES = {
     "accel": fig_accel,
     "jerk": fig_jerk,
@@ -448,6 +493,7 @@ FIGURES = {
     "gtfree": fig_gtfree,
     "calibration": fig_calibration,
     "scenes": fig_scenes,
+    "detectors": fig_detectors,
 }
 
 

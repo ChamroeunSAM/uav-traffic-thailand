@@ -41,3 +41,6 @@ mlruns/
 # Keep the calibration directory and its .gitkeep marker tracked.
 !/data/calibration/
 !/data/calibration/.gitkeep
+
+# transient timing log
+results/stage1/_timing.log

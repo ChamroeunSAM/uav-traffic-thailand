@@ -1,0 +1,7 @@
+detector,infer_ms_mean,infer_ms_std,fps,imgsz,n_images,device,precision
+yolov9m,8.435,1.115,118.6,1280,80,cuda:0,fp32
+yolov10m,6.194,0.908,161.4,1280,80,cuda:0,fp32
+yolo11m,6.631,1.222,150.8,1280,80,cuda:0,fp32
+yolo12m,8.978,1.017,111.4,1280,80,cuda:0,fp32
+yolo26m,7.224,1.423,138.4,1280,80,cuda:0,fp32
+rtdetr_l,18.067,1.219,55.4,1280,80,cuda:0,fp32
