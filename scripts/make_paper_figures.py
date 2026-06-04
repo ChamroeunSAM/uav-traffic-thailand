@@ -485,10 +485,9 @@ def fig_detectors():
         ax.annotate(DET_DISPLAY[d], (fps, a), textcoords="offset points",
                     xytext=(dx, dy), ha=ha, fontsize=9.5)
     ax.set_xlim(40, 180)
-    ax.set_ylim(0, 1)
+    ax.set_ylim(0.7, 0.9)
     ax.set_xlabel("Inference speed")
     ax.set_ylabel("mAP50:95 (overall)")
-    ax.set_title("Detector accuracy vs. inference cost")
     ax.legend(loc="lower left", fontsize=9, frameon=True)
     ax.grid(True, alpha=0.25)
     _save(fig, "F3_detector_accuracy_speed")
