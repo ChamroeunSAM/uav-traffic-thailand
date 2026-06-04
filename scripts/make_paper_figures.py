@@ -176,10 +176,39 @@ def fig_smoothing(clip="120_m_DJI_0006_1min", seg=26):
     _save(fig, "F5_smoothing_effect")
 
 
+# --------------------------------------------------------------------------- #
+# F7 -- world-coordinate trajectory spaghetti, coloured by speed
+# --------------------------------------------------------------------------- #
+def fig_spaghetti(clip="120_m_DJI_0006_1min", source="gt"):
+    npz = (TRAJ / f"{clip}.gt.npz") if source == "gt" else \
+          (TRAJ / f"{clip}.{source}.linked.npz")
+    data, idx, meta = load_traj(npz)
+    x = data[:, idx["xs_m"]]
+    y = data[:, idx["ys_m"]]
+    spd = data[:, idx["speed_mps"]] * 3.6  # km/h
+
+    fig, ax = plt.subplots(figsize=(6.2, 5.6))
+    sc = ax.scatter(x, y, c=spd, s=2.0, cmap="turbo", vmin=0,
+                    vmax=float(np.percentile(spd, 98)), alpha=0.55, linewidths=0)
+    cb = fig.colorbar(sc, ax=ax, shrink=0.85, pad=0.02)
+    cb.set_label("speed (km/h)")
+    ax.set_aspect("equal")
+    ax.invert_yaxis()  # match overhead image orientation
+    ax.set_xlabel("world X (m)")
+    ax.set_ylabel("world Y (m)")
+    n_tracks = int(meta.get("n_tracks", 0))
+    src_lbl = "ground truth" if source == "gt" else LABEL.get(source, source)
+    ax.set_title(f"World-coordinate trajectories, coloured by speed\n"
+                 f"({clip.replace('_', ' ')}, {src_lbl}, {n_tracks} tracks)")
+    ax.grid(True, alpha=0.2)
+    _save(fig, f"F7_trajectories_{clip}_{source}")
+
+
 FIGURES = {
     "accel": fig_accel,
     "jerk": fig_jerk,
     "smoothing": fig_smoothing,
+    "spaghetti": fig_spaghetti,
 }
 
 
