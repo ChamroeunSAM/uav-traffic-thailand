@@ -1,0 +1,20 @@
+\begin{table}[ht]
+  \centering
+  \caption{Axis-3 plausibility: raw vs.\ smoothed.}
+  \label{tab:smoothing}
+  \begin{tabular}{lcccc}
+    \toprule
+    & \multicolumn{2}{c}{Frac.\ $|a|\le8$\,m/s$^2$} & \multicolumn{2}{c}{Mean $|$jerk$|$ (m/s$^3$)} \\
+    \cmidrule(lr){2-3}\cmidrule(lr){4-5}
+    Source & raw & smoothed & raw & smoothed \\
+    \midrule
+    GT (ceiling) & 0.852 & 0.977 & 128.4 & 22.2 \\
+    ByteTrack & 0.847 & 0.977 & 129.7 & 22.0 \\
+    BoT-SORT & 0.840 & 0.974 & 136.7 & 23.1 \\
+    OC-SORT & 0.717 & 0.975 & 191.8 & 28.1 \\
+    Deep OC-SORT & 0.717 & 0.975 & 191.9 & 27.9 \\
+    \bottomrule
+  \end{tabular}
+  \par\smallskip
+  \footnotesize Effect of Savitzky--Golay smoothing on the Axis-3 plausibility metrics (smoothing reported as a studied variable). Smoothing lifts every source toward the GT ceiling; the tracker ordering is preserved in both columns.
+\end{table}

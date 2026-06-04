@@ -1,0 +1,19 @@
+\begin{table}[ht]
+  \centering
+  \caption{UAV traffic clips used in the study.}
+  \label{tab:dataset}
+  \begin{tabular}{llrrrrcl}
+    \toprule
+    Scene & Alt.\ (m) & Dur.\ (s) & Frames & Tracks & Veh./frame & LV/MV/SV (\%) & Role \\
+    \midrule
+    Intersection & 100 & 60 & 1799 & 40 & 10.9 & 3/34/63 & Tracker GT \\
+    Intersection (dense) & 100 & 60 & 1799 & 218 & 144.1 & 1/36/63 & Tracker GT \\
+    Roundabout & 120 & 60 & 1799 & 61 & 17.8 & 0/48/52 & Tracker GT \\
+    Suburban intersection & 120 & 60 & 1799 & 115 & 64.9 & 4/62/35 & Tracker GT \\
+    Urban intersection & 120 & 300 & 9021 & -- & -- & -- & GT-free \\
+    Arterial intersection & 120 & 300 & 9021 & -- & -- & -- & GT-free \\
+    \bottomrule
+  \end{tabular}
+  \par\smallskip
+  \footnotesize Vehicle classes: LV = large (truck/bus), MV = medium (car/van/pickup), SV = small (motorcycle). Density = mean annotated vehicles per frame (ground truth). GT-free clips carry no ground truth and are scored by intrinsic plausibility only.
+\end{table}

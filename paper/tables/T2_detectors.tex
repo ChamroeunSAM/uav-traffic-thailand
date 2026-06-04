@@ -1,0 +1,19 @@
+\begin{table}[ht]
+  \centering
+  \caption{Detector benchmark: six detectors $\times$ five seeds.}
+  \label{tab:detectors}
+  \begin{tabular}{lcccc}
+    \toprule
+    Detector & mAP@.5 & mAP@.5:.95 & mAP@.5 (100\,m) & mAP@.5 (120\,m) \\
+    \midrule
+    \textbf{RT-DETR-L} & 0.963\,(0.002) & 0.875\,(0.002) & 0.968\,(0.001) & 0.955\,(0.003) \\
+    YOLO26-m & 0.955\,(0.002) & 0.863\,(0.002) & 0.960\,(0.002) & 0.950\,(0.004) \\
+    YOLOv10-m & 0.951\,(0.001) & 0.856\,(0.000) & 0.959\,(0.001) & 0.944\,(0.001) \\
+    YOLO11-m & 0.932\,(0.001) & 0.840\,(0.001) & 0.939\,(0.001) & 0.926\,(0.001) \\
+    YOLO12-m & 0.931\,(0.002) & 0.837\,(0.002) & 0.939\,(0.002) & 0.924\,(0.002) \\
+    YOLOv9-m & 0.930\,(0.001) & 0.834\,(0.001) & 0.938\,(0.000) & 0.921\,(0.002) \\
+    \bottomrule
+  \end{tabular}
+  \par\smallskip
+  \footnotesize Mean (std) over 5 seeds on the stratified test set; best per metric in bold. 100\,m exceeds 120\,m throughout. All detectors trained at 1280$\times$1280.
+\end{table}

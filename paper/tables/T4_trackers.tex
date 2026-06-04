@@ -1,0 +1,24 @@
+\begin{table}[ht]
+  \centering
+  \caption{Tracker benchmark (HOTA/MOTA/IDF1), raw vs.\ post-linker.}
+  \label{tab:trackers}
+  \begin{tabular}{llccccccc}
+    \toprule
+    Tracker & Arm & HOTA & DetA & AssA & MOTA & IDF1 & IDSW & Frag \\
+    \midrule
+    ByteTrack & raw & 0.823 & 0.838 & 0.809 & 0.812 & 0.801 & 634 & 885 \\
+     & linked & \textbf{0.891} & 0.969 & 0.820 & 0.973 & 0.871 & \textbf{495} & 879 \\
+    \addlinespace
+    BoT-SORT & raw & 0.819 & 0.832 & 0.806 & 0.822 & 0.808 & 677 & 932 \\
+     & linked & 0.881 & 0.954 & 0.814 & 0.974 & \textbf{0.874} & 528 & 936 \\
+    \addlinespace
+    OC-SORT & raw & 0.763 & 0.822 & 0.708 & 0.803 & 0.725 & 3433 & 2660 \\
+     & linked & 0.845 & 0.938 & 0.762 & 0.956 & 0.835 & 1062 & 2616 \\
+    \addlinespace
+    Deep OC-SORT & raw & 0.779 & 0.822 & 0.738 & 0.806 & 0.749 & 2642 & 2126 \\
+     & linked & 0.856 & 0.940 & 0.780 & 0.960 & 0.846 & 849 & 2104 \\
+    \bottomrule
+  \end{tabular}
+  \par\smallskip
+  \footnotesize Clip-averaged over the four annotated sequences, class-agnostic. ``raw'' = tracker output; ``linked'' = after the offline fragment linker. Best linked HOTA/IDF1/IDSW in bold. Raw DetA $\approx$ 0.82--0.84 across trackers (shared RT-DETR detections), so the raw HOTA spread is pure association; the linker's dedup pass lifts DetA.
+\end{table}

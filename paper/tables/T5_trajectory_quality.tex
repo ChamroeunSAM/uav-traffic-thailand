@@ -1,0 +1,20 @@
+\begin{table}[ht]
+  \centering
+  \caption{Trajectory-quality evaluation along three axes.}
+  \label{tab:trajectory}
+  \begin{tabular}{lccccccccc}
+    \toprule
+    & \multicolumn{3}{c}{Axis 1: identity} & \multicolumn{4}{c}{Axis 2: accuracy vs.\ GT} & \multicolumn{2}{c}{Axis 3: plausibility} \\
+    \cmidrule(lr){2-4}\cmidrule(lr){5-8}\cmidrule(lr){9-10}
+    Source & Compl. & Frag/GT & IDSW & ADE\,(m) & FDE\,(m) & Sp.\,MAE & Head\,($^\circ$) & Acc.\,ok & Jerk \\
+    \midrule
+    GT (ceiling) & -- & -- & -- & -- & -- & -- & -- & 0.977 & 22.2 \\
+    ByteTrack & 0.950 & 2.22 & 149 & \textbf{0.003} & 0.083 & \textbf{0.029} & \textbf{0.29} & \textbf{0.977} & \textbf{22.0} \\
+    BoT-SORT & \textbf{0.953} & \textbf{2.09} & \textbf{132} & 0.005 & 0.086 & 0.037 & 0.36 & 0.974 & 23.1 \\
+    OC-SORT & 0.910 & 2.41 & 249 & 0.008 & \textbf{0.083} & 0.045 & 0.44 & 0.975 & 28.1 \\
+    Deep OC-SORT & 0.911 & 2.36 & 202 & 0.007 & 0.083 & 0.044 & 0.42 & 0.975 & 27.9 \\
+    \bottomrule
+  \end{tabular}
+  \par\smallskip
+  \footnotesize Smoothed (Savitzky--Golay) trajectories, clip-averaged, class-agnostic. GT run through the same pipeline as a reference ceiling (Axis 1/2 undefined for GT). Best tracker per column in bold. Speed MAE in m/s; Acc.\,ok = fraction of $|a|\le 8$\,m/s$^2$; Jerk = mean $|j|$ (m/s$^3$). ADE is near-zero because GT shares the RT-DETR detections; the discriminating signal is in speed/heading.
+\end{table}

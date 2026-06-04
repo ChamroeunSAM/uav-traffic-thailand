@@ -1,0 +1,19 @@
+\begin{table}[ht]
+  \centering
+  \caption{Pixel-to-world calibration summary.}
+  \label{tab:calibration}
+  \begin{tabular}{llccc}
+    \toprule
+    Clip & Alt.\,(m) & GCPs & Reproj.\ RMSE\,(m) & Scale\,(m/px) \\
+    \midrule
+    100\_m\_DJI\_0001\_1min & 100 & 4 & 0.000 & 0.0311 \\
+    100\_m\_DJI\_0054\_1min & 100 & 4 & 0.000 & 0.0302 \\
+    120\_m\_DJI\_0001\_5min & 120 & 4 & 0.000 & 0.0347 \\
+    120\_m\_DJI\_0006\_1min & 120 & 4 & 0.000 & 0.0358 \\
+    120\_m\_DJI\_0041\_5min & 120 & 4 & 0.000 & 0.0403 \\
+    120\_m\_DJI\_0047\_1min & 120 & 4 & 0.000 & 0.0393 \\
+    \bottomrule
+  \end{tabular}
+  \par\smallskip
+  \footnotesize Per-clip ground-plane homography from road-marking GCPs. With four points the fit is exact (RMSE $\approx$ 0); calibration quality is instead guarded by the scale-consistency spread and the agreement of Scale with the expected altitude GSD ($\sim$0.03\,m/px at 100\,m, $\sim$0.04\,m/px at 120\,m).
+\end{table}
