@@ -485,7 +485,7 @@ def fig_detectors():
         ax.annotate(DET_DISPLAY[d], (fps, a), textcoords="offset points",
                     xytext=(dx, dy), ha=ha, fontsize=9.5)
     ax.set_xlim(40, 180)
-    ax.set_ylim(0.7, 0.9)
+    ax.set_ylim(0.75, 0.9)
     ax.set_xlabel("Inference speed")
     ax.set_ylabel("mAP50:95 (overall)")
     ax.legend(loc="lower left", fontsize=9, frameon=True)
