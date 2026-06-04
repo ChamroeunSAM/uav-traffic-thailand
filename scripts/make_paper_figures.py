@@ -108,9 +108,8 @@ def fig_accel():
             color="0.3", fontsize=9)
     ax.set_xlim(0, 16)
     ax.set_ylim(0, 1.005)
-    ax.set_xlabel("acceleration magnitude  |a|  (m/s², raw)")
-    ax.set_ylabel("cumulative fraction of samples")
-    ax.set_title("Acceleration plausibility (Axis 3, GT-free)")
+    ax.set_xlabel("Acceleration |a| (m/s², raw)")
+    ax.set_ylabel("Cumulative fraction")
     ax.legend(loc="lower right", frameon=True)
     ax.grid(True, alpha=0.25)
     _save(fig, "F6a_accel_plausibility")
@@ -132,9 +131,8 @@ def fig_jerk():
                 label=f"{LABEL[src]}  (median {med:.0f} m/s³)")
     ax.set_xlim(0, xmax)
     ax.set_ylim(0, 1.005)
-    ax.set_xlabel("jerk magnitude  |j|  (m/s³, smoothed)")
-    ax.set_ylabel("cumulative fraction of samples")
-    ax.set_title("Trajectory smoothness (Axis 3, GT-free)")
+    ax.set_xlabel("Jerk |j| (m/s³, smoothed)")
+    ax.set_ylabel("Cumulative fraction")
     ax.legend(loc="lower right", frameon=True)
     ax.grid(True, alpha=0.25)
     _save(fig, "F6b_jerk_smoothness")
@@ -160,9 +158,7 @@ def fig_smoothing(clip="120_m_DJI_0006_1min", seg=26):
 
     ax1.plot(t, sp_raw, color=raw_c, lw=1.0, label="raw (finite-difference)")
     ax1.plot(t, sp_sm, color=sm_c, lw=2.0, label="smoothed (Savitzky–Golay)")
-    ax1.set_ylabel("speed (km/h)")
-    ax1.set_title(f"Effect of smoothing on differentiated kinematics\n"
-                  f"(one vehicle, {clip.replace('_', ' ')}, {t[-1]:.0f}s)")
+    ax1.set_ylabel("Speed (km/h)")
     ax1.legend(loc="upper right", frameon=True)
     ax1.grid(True, alpha=0.25)
 
@@ -170,8 +166,8 @@ def fig_smoothing(clip="120_m_DJI_0006_1min", seg=26):
     ax2.plot(t, ac_sm, color=sm_c, lw=2.0, label="smoothed |a|")
     ax2.axhline(A_MAX, color="#D55E00", ls=":", lw=1.3, label=f"{A_MAX:.0f} m/s² bound")
     ax2.set_ylim(0, min(float(np.nanmax(ac_raw)) * 1.05, 60))
-    ax2.set_ylabel("acceleration |a| (m/s²)")
-    ax2.set_xlabel("time (s)")
+    ax2.set_ylabel("Acceleration |a| (m/s²)")
+    ax2.set_xlabel("Time (s)")
     ax2.legend(loc="upper right", frameon=True)
     ax2.grid(True, alpha=0.25)
     ax2.set_xlim(0, t[-1])
@@ -192,16 +188,14 @@ def fig_spaghetti(clip="120_m_DJI_0006_1min", source="gt"):
     fig, ax = plt.subplots(figsize=(8.6, 4.2))
     sc = ax.scatter(x, y, c=spd, s=2.0, cmap="turbo", vmin=0,
                     vmax=float(np.percentile(spd, 98)), alpha=0.55, linewidths=0)
-    cb = fig.colorbar(sc, ax=ax, shrink=0.9, pad=0.02)
-    cb.set_label("speed (km/h)")
+    cb = fig.colorbar(sc, ax=ax, shrink=0.6, aspect=30, pad=0.02)
+    cb.set_label("Speed (km/h)")
     ax.set_aspect("equal")
     ax.invert_yaxis()  # match overhead image orientation
-    ax.set_xlabel("world X (m)")
-    ax.set_ylabel("world Y (m)")
+    ax.set_xlabel("World X (m)")
+    ax.set_ylabel("World Y (m)")
     n_tracks = int(meta.get("n_tracks", 0))
     src_lbl = "ground truth" if source == "gt" else LABEL.get(source, source)
-    ax.set_title(f"World-coordinate trajectories, coloured by speed\n"
-                 f"({clip.replace('_', ' ')}, {src_lbl}, {n_tracks} tracks)")
     ax.grid(True, alpha=0.2)
     _save(fig, f"F7_trajectories_{clip}_{source}")
 
@@ -268,10 +262,15 @@ def fig_gtfree():
     ]
     fig, axes = plt.subplots(2, 2, figsize=(7.2, 5.8))
     names = [LABEL[t] for t in TRACKERS]
-    colors = [COLOR[t] for t in TRACKERS]
-    for ax, (col, src, ylab, better, dec) in zip(axes.flat, panels):
+    # one style per subplot (trackers are identified by the x-axis, not colour);
+    # distinct hatch per panel so the panels read in greyscale too
+    PANEL = [("#A1C9F4", "///"), ("#FFB482", "xxx"),
+             ("#8DE5A1", "..."), ("#D0BBFF", "\\\\\\")]
+    for k, (ax, (col, src, ylab, better, dec)) in enumerate(zip(axes.flat, panels)):
+        fc, hatch = PANEL[k]
         vals = [float(src[t][col]) for t in TRACKERS]
-        bars = ax.bar(names, vals, color=colors, edgecolor="black", linewidth=0.6)
+        bars = ax.bar(names, vals, color=fc, edgecolor="black", linewidth=0.7,
+                      hatch=hatch)
         ax.set_title(f"{ylab}   ({better})", fontsize=10.5)
         ax.tick_params(axis="x", rotation=20, labelsize=9)
         ax.grid(True, axis="y", alpha=0.25)
@@ -279,9 +278,7 @@ def fig_gtfree():
             ax.text(b.get_x() + b.get_width() / 2, v, f"{v:.{dec}f}",
                     ha="center", va="bottom", fontsize=8.5)
         ax.set_ylim(0, max(vals) * 1.18)
-    fig.suptitle("GT-free tracker ranking — two unlabelled 120 m clips "
-                 "(ByteTrack/BoT-SORT lead every axis)", fontsize=12)
-    fig.tight_layout(rect=[0, 0, 1, 0.96])
+    fig.tight_layout()
     _save(fig, "F9_gtfree_ranking")
 
 
@@ -361,8 +358,6 @@ def fig_calibration(clip="120_m_DJI_0041_5min", step=10.0):
     ax.set_xlim(0, W_img)
     ax.set_ylim(H_img, 0)
     ax.set_xticks([]); ax.set_yticks([])
-    ax.set_title(f"Pixel-to-world calibration: GCP quad (yellow) + reprojected "
-                 f"{step:.0f} m grid (cyan)\n({clip.replace('_', ' ')})", fontsize=11)
     _save(fig, f"F8_calibration_{clip}")
 
 
@@ -432,9 +427,7 @@ def fig_scenes():
                for c in (0, 1, 2)]
     fig.legend(handles=handles, loc="lower center", ncol=3, frameon=False,
                bbox_to_anchor=(0.5, -0.02), fontsize=10)
-    fig.suptitle("UAV traffic scenes with vehicle detections "
-                 "(box colour = class)", fontsize=12)
-    fig.tight_layout(rect=[0, 0.02, 1, 0.96])
+    fig.tight_layout(rect=[0, 0.02, 1, 1])
     _save(fig, "F2_scene_gallery")
 
 
