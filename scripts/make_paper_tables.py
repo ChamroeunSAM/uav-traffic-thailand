@@ -364,33 +364,40 @@ def table_gtfree():
         logger.info("T6: %s not present yet -- skipping (run --gt-free-clips first)",
                     STAGE4_GTFREE.name)
         return
-    rows = [r for r in csv.DictReader(STAGE4_GTFREE.open(encoding="utf-8"))
-            if r["variant"] == "smoothed"]
-    clips = sorted({r["clip"] for r in rows if r["clip"] != "ALL"})
-    by = {(r["clip"], r["source"]): r for r in rows}
+    allrows = list(csv.DictReader(STAGE4_GTFREE.open(encoding="utf-8")))
+    sm = {(r["clip"], r["source"]): r for r in allrows if r["variant"] == "smoothed"}
+    rw = {(r["clip"], r["source"]): r for r in allrows if r["variant"] == "raw"}
+    clips = sorted({r["clip"] for r in allrows if r["clip"] != "ALL"})
 
     body = []
     for clip in clips + ["ALL"]:
-        body.append(f"    \\multicolumn{{7}}{{l}}{{\\textit{{{clip}}}}} \\\\")
+        clabel = clip.replace("_", "\\_")
+        body.append(f"    \\multicolumn{{7}}{{l}}{{\\textit{{{clabel}}}}} \\\\")
         for t in TRACKER_ORDER:
-            r = by.get((clip, t))
+            r = sm.get((clip, t))
             if not r:
                 continue
+            # accel-in-bounds from the RAW series (smoothing washes out the
+            # difference; raw is the discriminating signal). Jerk smoothed.
+            accel_raw = rw.get((clip, t), {}).get("a3_frac_accel_ok")
             body.append(
                 f"    \\quad {TRACKER_NAME[t]} & {i(r['sc_n_tracks'])} & "
                 f"{f(r['sc_seg_per_track'],2)} & {i(r['sc_teleport_breaks'])} & "
-                f"{f(r['sc_mean_track_dur_s'],1)} & {f(r['a3_frac_accel_ok'])} & "
+                f"{f(r['sc_mean_track_dur_s'],1)} & {f(accel_raw)} & "
                 f"{f(r['a3_jerk_mean_mps3'],1)} \\\\")
         body.append("    \\addlinespace")
     if body and body[-1].strip() == "\\addlinespace":
         body.pop()
     header = ("    Tracker & Tracks & Seg/trk & Teleports & Mean dur.\\,(s) "
-              "& Acc.\\,ok & Jerk \\\\")
+              "& Acc.\\,ok (raw) & Jerk \\\\")
     note = ("Two unlabelled 120\\,m clips scored without ground truth: "
             "self-consistency proxies (segments per track, impossible-jump "
-            "splits, mean track duration) and Axis-3 plausibility (smoothed). "
-            "Lower Seg/trk, Teleports, Jerk and higher Mean dur., Acc.\\,ok are "
-            "better.")
+            "splits, mean track duration) and Axis-3 plausibility. Acc.\\,ok = "
+            "fraction $|a|\\le8$\\,m/s$^2$ on the \\emph{raw} series (smoothing "
+            "equalises it); Jerk = mean $|j|$ smoothed (m/s$^3$). Lower Seg/trk, "
+            "Teleports, Jerk and higher Mean dur., Acc.\\,ok are better. "
+            "ByteTrack/BoT-SORT lead on every axis, replicating the labelled "
+            "benchmark with no ground truth.")
     write("T6_gtfree.tex", wrap_table(
         "\n".join(body),
         "GT-free generalisation on two new 120\\,m clips.",

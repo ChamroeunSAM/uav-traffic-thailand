@@ -4,27 +4,27 @@
   \label{tab:gtfree}
   \begin{tabular}{lcccccc}
     \toprule
-    Tracker & Tracks & Seg/trk & Teleports & Mean dur.\,(s) & Acc.\,ok & Jerk \\
+    Tracker & Tracks & Seg/trk & Teleports & Mean dur.\,(s) & Acc.\,ok (raw) & Jerk \\
     \midrule
-    \multicolumn{7}{l}{\textit{120_m_DJI_0001_5min}} \\
-    \quad ByteTrack & 362 & 2.16 & 101 & 71.2 & 0.982 & 20.3 \\
-    \quad BoT-SORT & 319 & 2.21 & 93 & 80.1 & 0.981 & 21.0 \\
-    \quad OC-SORT & 384 & 3.95 & 239 & 69.2 & 0.981 & 24.9 \\
-    \quad Deep OC-SORT & 372 & 3.68 & 237 & 71.1 & 0.981 & 24.8 \\
+    \multicolumn{7}{l}{\textit{120\_m\_DJI\_0001\_5min}} \\
+    \quad ByteTrack & 362 & 2.16 & 101 & 71.2 & 0.868 & 20.3 \\
+    \quad BoT-SORT & 319 & 2.21 & 93 & 80.1 & 0.862 & 21.0 \\
+    \quad OC-SORT & 384 & 3.95 & 239 & 69.2 & 0.780 & 24.9 \\
+    \quad Deep OC-SORT & 372 & 3.68 & 237 & 71.1 & 0.779 & 24.8 \\
     \addlinespace
-    \multicolumn{7}{l}{\textit{120_m_DJI_0041_5min}} \\
-    \quad ByteTrack & 311 & 2.32 & 87 & 73.3 & 0.982 & 21.4 \\
-    \quad BoT-SORT & 272 & 1.92 & 67 & 81.2 & 0.981 & 22.0 \\
-    \quad OC-SORT & 348 & 3.79 & 175 & 67.5 & 0.981 & 26.3 \\
-    \quad Deep OC-SORT & 339 & 3.39 & 164 & 68.8 & 0.981 & 26.3 \\
+    \multicolumn{7}{l}{\textit{120\_m\_DJI\_0041\_5min}} \\
+    \quad ByteTrack & 311 & 2.32 & 87 & 73.3 & 0.854 & 21.4 \\
+    \quad BoT-SORT & 272 & 1.92 & 67 & 81.2 & 0.848 & 22.0 \\
+    \quad OC-SORT & 348 & 3.79 & 175 & 67.5 & 0.751 & 26.3 \\
+    \quad Deep OC-SORT & 339 & 3.39 & 164 & 68.8 & 0.750 & 26.3 \\
     \addlinespace
     \multicolumn{7}{l}{\textit{ALL}} \\
-    \quad ByteTrack & 336 & 2.24 & 94 & 72.2 & 0.982 & 20.8 \\
-    \quad BoT-SORT & 296 & 2.06 & 80 & 80.6 & 0.981 & 21.5 \\
-    \quad OC-SORT & 366 & 3.87 & 207 & 68.4 & 0.981 & 25.6 \\
-    \quad Deep OC-SORT & 356 & 3.53 & 200 & 69.9 & 0.981 & 25.6 \\
+    \quad ByteTrack & 336 & 2.24 & 94 & 72.2 & 0.861 & 20.8 \\
+    \quad BoT-SORT & 296 & 2.06 & 80 & 80.6 & 0.855 & 21.5 \\
+    \quad OC-SORT & 366 & 3.87 & 207 & 68.4 & 0.766 & 25.6 \\
+    \quad Deep OC-SORT & 356 & 3.53 & 200 & 69.9 & 0.765 & 25.6 \\
     \bottomrule
   \end{tabular}
   \par\smallskip
-  \footnotesize Two unlabelled 120\,m clips scored without ground truth: self-consistency proxies (segments per track, impossible-jump splits, mean track duration) and Axis-3 plausibility (smoothed). Lower Seg/trk, Teleports, Jerk and higher Mean dur., Acc.\,ok are better.
+  \footnotesize Two unlabelled 120\,m clips scored without ground truth: self-consistency proxies (segments per track, impossible-jump splits, mean track duration) and Axis-3 plausibility. Acc.\,ok = fraction $|a|\le8$\,m/s$^2$ on the \emph{raw} series (smoothing equalises it); Jerk = mean $|j|$ smoothed (m/s$^3$). Lower Seg/trk, Teleports, Jerk and higher Mean dur., Acc.\,ok are better. ByteTrack/BoT-SORT lead on every axis, replicating the labelled benchmark with no ground truth.
 \end{table}
