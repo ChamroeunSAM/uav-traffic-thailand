@@ -177,7 +177,7 @@ def fig_smoothing(clip="120_m_DJI_0006_1min", seg=26):
 # --------------------------------------------------------------------------- #
 # F7 -- world-coordinate trajectory spaghetti, coloured by speed
 # --------------------------------------------------------------------------- #
-def fig_spaghetti(clip="120_m_DJI_0006_1min", source="gt"):
+def fig_spaghetti(clip="120_m_DJI_0006_1min", source="gt", figsize=(8.6, 4.2)):
     npz = (TRAJ / f"{clip}.gt.npz") if source == "gt" else \
           (TRAJ / f"{clip}.{source}.linked.npz")
     data, idx, meta = load_traj(npz)
@@ -185,7 +185,12 @@ def fig_spaghetti(clip="120_m_DJI_0006_1min", source="gt"):
     y = data[:, idx["ys_m"]]
     spd = data[:, idx["speed_mps"]] * 3.6  # km/h
 
-    fig, ax = plt.subplots(figsize=(8.6, 4.2))
+    if figsize is None:  # auto-size to the clip's world-extent aspect (equal axes)
+        dx, dy = float(np.ptp(x)), float(np.ptp(y))
+        aspect = dx / dy if dy else 1.5
+        h = 5.0
+        figsize = (min(max(4.0 * aspect + 1.6, 5.0), 12.0), h)
+    fig, ax = plt.subplots(figsize=figsize)
     sc = ax.scatter(x, y, c=spd, s=2.0, cmap="turbo", vmin=0,
                     vmax=float(np.percentile(spd, 98)), alpha=0.55, linewidths=0)
     cb = fig.colorbar(sc, ax=ax, shrink=0.6, aspect=30, pad=0.02)
@@ -490,6 +495,8 @@ FIGURES = {
     "jerk": fig_jerk,
     "smoothing": fig_smoothing,
     "spaghetti": fig_spaghetti,
+    "spaghetti_0001_5min": lambda: fig_spaghetti("120_m_DJI_0001_5min", "botsort", None),
+    "spaghetti_0041_5min": lambda: fig_spaghetti("120_m_DJI_0041_5min", "botsort", None),
     "boxvstraj": fig_boxvstraj,
     "gtfree": fig_gtfree,
     "calibration": fig_calibration,
