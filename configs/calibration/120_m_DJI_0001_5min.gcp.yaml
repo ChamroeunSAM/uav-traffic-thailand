@@ -1,0 +1,44 @@
+# Ground control points for image->world homography (Stage 4 / Axis-3 GT-free test).
+#
+# HOW TO FILL THIS IN
+# 1. Reference frame already dumped at frame 1500:
+#      data/video_annotations/calibration/frames/120_m_DJI_0001_5min.png
+#    (re-dump a clearer frame if your chosen markings are occluded by vehicles:
+#      python scripts/00_calibrate.py --video data/video_clips/120_m_DJI_0001_5min.mp4 --dump-frame --frame N)
+# 2. Open the PNG in a viewer that shows pixel coords on hover (e.g. IrfanView,
+#    GIMP, or the Windows Photos zoom + Paint cursor readout).
+# 3. Pick 4 points on the FLAT road plane whose real-world spacing you know
+#    (e.g. the 4 corners of a zebra-crossing block, or a lane rectangle).
+#    Spread them across the frame for a stable fit.
+# 4. Local metric ground frame: one point is the origin (0,0); give the others'
+#    (X, Y) in METRES. A rectangle of known width W and length L is convenient:
+#    (0,0), (W,0), (W,L), (0,L).
+# 5. Fit:
+#      python scripts/00_calibrate.py --gcp configs/calibration/120_m_DJI_0001_5min.gcp.yaml
+#
+# NOTE: with exactly 4 points the fit is EXACT, so reprojection RMSE is always
+# ~0 and proves nothing. The `validation:` segment below (two pixels + an
+# independently-known distance, NOT among the 4 fit points) is your only check
+# against a mis-clicked point or wrong scale -- please fill it in.
+#
+# REFERENCE DIMENSIONS (use measured / satellite values where possible; a
+# globally-wrong distance scales ALL kinematics and RMSE cannot catch it):
+#   - traffic lane width ......... ~3.0-3.5 m   (confirm on-site / satellite)
+#   - zebra-crossing stripe pitch  confirm (commonly ~0.6-0.8 m stripe+gap)
+#   - dashed centre-line segment . confirm (commonly ~3 m segment + ~3 m gap)
+#
+clip: 120_m_DJI_0001_5min
+reference: "FILL ME: exact real-world distances used and their source (measured / satellite / Thai standard)."
+
+# 4 points. pixel: [u, v] from the reference frame; world: [X, Y] in metres.
+points:
+  - {name: p1, pixel: [2092.84,1457.61], world: [0.0, 0.0]}
+  - {name: p2, pixel: [2264.07,1282.15], world: [8,0]}
+  - {name: p3, pixel: [2198.54,1222.96], world: [8,3]}
+  - {name: p4, pixel: [2029.42,1398.42], world: [0,3]}
+
+# Independent scale check (strongly recommended with only 4 fit points).
+validation:
+  pixel_a: [null, null]
+  pixel_b: [null, null]
+  known_distance_m: null
