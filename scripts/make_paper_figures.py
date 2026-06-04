@@ -233,17 +233,16 @@ def fig_boxvstraj():
         # per-clip points (small, translucent)
         xs = [hota[(c, t)] for c in BENCH_CLIPS if (c, t) in hota and (c, t) in accel]
         ys = [accel[(c, t)] for c in BENCH_CLIPS if (c, t) in hota and (c, t) in accel]
-        ax.scatter(xs, ys, c=COLOR[t], marker=MARKER[t], s=28, alpha=0.35,
+        ax.scatter(xs, ys, c=COLOR[t], marker=MARKER[t], s=14, alpha=0.35,
                    linewidths=0)
         # aggregate point (large, labelled)
         ax_, ay_ = hota.get(("ALL", t)), accel.get(("ALL", t))
         if ax_ and ay_:
-            ax.scatter([ax_], [ay_], c=COLOR[t], marker=MARKER[t], s=130,
-                       edgecolors="black", linewidths=1.0, zorder=5,
+            ax.scatter([ax_], [ay_], c=COLOR[t], marker=MARKER[t], s=70,
+                       edgecolors="black", linewidths=0.8, zorder=5,
                        label=LABEL[t])
-    ax.set_xlabel("HOTA  (box tracking, post-linker)  →  better")
-    ax.set_ylabel("frac. |a| ≤ 8 m/s²  (trajectory plausibility)  →  better")
-    ax.set_title("Box-tracking quality vs. trajectory plausibility")
+    ax.set_xlabel("HOTA (post-linker)")
+    ax.set_ylabel("Fraction |a| ≤ 8 m/s²")
     ax.legend(loc="upper left", frameon=True, fontsize=8.5, title_fontsize=8.5,
               title="aggregate (small = per clip)")
     ax.grid(True, alpha=0.25)
