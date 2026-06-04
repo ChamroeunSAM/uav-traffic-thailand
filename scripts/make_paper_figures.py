@@ -189,10 +189,10 @@ def fig_spaghetti(clip="120_m_DJI_0006_1min", source="gt"):
     y = data[:, idx["ys_m"]]
     spd = data[:, idx["speed_mps"]] * 3.6  # km/h
 
-    fig, ax = plt.subplots(figsize=(6.2, 5.6))
+    fig, ax = plt.subplots(figsize=(8.6, 4.2))
     sc = ax.scatter(x, y, c=spd, s=2.0, cmap="turbo", vmin=0,
                     vmax=float(np.percentile(spd, 98)), alpha=0.55, linewidths=0)
-    cb = fig.colorbar(sc, ax=ax, shrink=0.85, pad=0.02)
+    cb = fig.colorbar(sc, ax=ax, shrink=0.9, pad=0.02)
     cb.set_label("speed (km/h)")
     ax.set_aspect("equal")
     ax.invert_yaxis()  # match overhead image orientation
@@ -244,7 +244,8 @@ def fig_boxvstraj():
     ax.set_xlabel("HOTA  (box tracking, post-linker)  →  better")
     ax.set_ylabel("frac. |a| ≤ 8 m/s²  (trajectory plausibility)  →  better")
     ax.set_title("Box-tracking quality vs. trajectory plausibility")
-    ax.legend(loc="lower right", frameon=True, title="aggregate (small = per clip)")
+    ax.legend(loc="upper left", frameon=True, fontsize=8.5, title_fontsize=8.5,
+              title="aggregate (small = per clip)")
     ax.grid(True, alpha=0.25)
     _save(fig, "F4_box_vs_trajectory")
 
