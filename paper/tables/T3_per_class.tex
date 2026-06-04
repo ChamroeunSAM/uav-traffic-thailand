@@ -1,0 +1,21 @@
+\begin{table}[ht]
+  \centering
+  \caption{Per-class detection accuracy (AP) by detector.}
+  \label{tab:perclass}
+  \begin{tabular}{lcccccc}
+    \toprule
+    & \multicolumn{2}{c}{LV (large)} & \multicolumn{2}{c}{MV (medium)} & \multicolumn{2}{c}{SV (small)} \\
+    \cmidrule(lr){2-3}\cmidrule(lr){4-5}\cmidrule(lr){6-7}
+    Detector & AP@.5 & AP@.5:.95 & AP@.5 & AP@.5:.95 & AP@.5 & AP@.5:.95 \\
+    \midrule
+    RT-DETR-L & \textbf{0.956} & \textbf{0.891} & \textbf{0.971} & \textbf{0.949} & \textbf{0.963} & \textbf{0.787} \\
+    YOLO26-m & 0.955 & 0.886 & 0.959 & 0.941 & 0.959 & 0.771 \\
+    YOLOv10-m & 0.951 & 0.881 & 0.955 & 0.936 & 0.955 & 0.757 \\
+    YOLO11-m & 0.948 & 0.884 & 0.901 & 0.886 & 0.957 & 0.760 \\
+    YOLO12-m & 0.946 & 0.884 & 0.901 & 0.886 & 0.956 & 0.753 \\
+    YOLOv9-m & 0.943 & 0.879 & 0.901 & 0.885 & 0.956 & 0.747 \\
+    \bottomrule
+  \end{tabular}
+  \par\smallskip
+  \footnotesize Mean over 5 seeds, overall test set; best per column in bold. Classes: LV = large (truck/bus), MV = medium (car/van/pickup), SV = small (motorcycle). SV is hardest at the strict AP@.5:.95 (small objects, tight-localisation penalty), despite high AP@.5. Per-seed std is small ($\leq$0.01) and omitted for width.
+\end{table}

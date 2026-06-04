@@ -586,3 +586,57 @@ complete.** Remaining work is paper-writing, not pipeline: the final
 trajectory-quality table, and author sync of `docs/methodology.docx`.
 ---
 
+
+## D5 — Duplicate ground-truth labels: dedupe + Stage-1 re-eval; supervision vs native-val
+
+**Date:** 2026-06-04
+**Status:** Accepted.
+
+**Trigger.** While building the per-class detection table (paper T3), the
+medium-vehicle (MV) AP@.5 looked suspicious: YOLO11-m / YOLO12-m / YOLOv9-m all
+reported an identical value to several decimals. Cross-checking against
+Ultralytics' native `val()` surfaced a warning — the test export contained
+*duplicate labels*.
+
+**Finding 1 — duplicate annotations (real data bug, fixed).** The source
+Roboflow export has ~0.8% exact-duplicate boxes (identical class + normalised
+coords): 1006 train / 259 val / 248 test lines, ~98% of them MV, zero LV. A
+duplicate GT box has no matching prediction partner, so it scores as a phantom
+false-negative and deflates AP under any evaluator that does not de-duplicate
+(`supervision`), worst on the dominant MV class. **Fix:**
+`00_prepare_splits.py::copy_label_with_remap` now drops exact-duplicate remapped
+lines (encoded in the pipeline; future regenerations stay clean), and the
+existing `data/annotations/merged/` labels were de-duplicated in place
+(1513 lines removed; 0 remaining). Training was **not** re-run — 0.75% duplicate
+positives are negligible for training and re-training 30 models (~58 GPU-h) is
+unjustified; only **evaluation** is sensitive (GT-side FN inflation). The 30
+Stage-1 evals were re-run on the cleaned GT (`scripts/_reeval_stage1.sh`).
+
+**Effect.** All detectors rose ~+0.003 mAP50 (RT-DETR-L +0.0005, the YOLO tier
++0.003–0.0035); the six-detector **ranking is unchanged**
+(RT-DETR-L > YOLO26-m > YOLOv10-m > YOLO11-m > YOLO12-m > YOLOv9-m). Pre-dedupe
+results preserved at commit history; T1/T2/T3 regenerated.
+
+**Finding 2 — the MV tie is REAL, not a metric artifact.** After dedupe the MV
+plateau persisted (YOLO11/12/v9-m all ≈ 0.901 supervision). Native Ultralytics
+`val()` *independently reproduces the same tie* (all three at MV AP@.5 ≈ 0.9145).
+So the three lower-tier detectors are genuinely indistinguishable on medium
+vehicles (the easy, dominant class) and separate only on LV/SV — a reportable
+result, not a bug. The earlier suspicion was wrong; the cross-check resolved it.
+
+**Finding 3 — supervision vs native-val offset (documented, not changed).**
+Supervision's mAP runs ~0.011–0.014 below native `val()` on clean data (e.g.
+YOLO11-m overall mAP50 0.935 vs 0.946), a pure AP-implementation difference
+(integration / matching details). Both rank the detectors identically. Stage 1
+keeps **supervision** as the canonical evaluator (chosen for uniform YOLO/RF-DETR
+handling and trivial altitude-subset stratification — see D2 / eval script
+docstring); the offset is recorded so the absolute numbers are interpreted
+against the right baseline. Native val is used only as an independent
+cross-check, not as the reported metric.
+
+**Unrelated note (same session).** The F3 inference-timing slowness was a
+separate VRAM-accumulation bug (looping six models in one process →
+near-OOM → allocator thrash → inflated latency), fixed by per-process timing.
+It shares no cause with the duplicate-label issue; both were merely caught by
+distrusting a physically-implausible number.
+---

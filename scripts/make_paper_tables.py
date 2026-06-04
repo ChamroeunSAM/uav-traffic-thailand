@@ -453,10 +453,84 @@ def table_calibration():
         "tab:calibration", "llccc", header, note))
 
 
+# --------------------------------------------------------------------------- #
+# T3 -- per-class detection difficulty (from per-seed eval_results.json)
+# --------------------------------------------------------------------------- #
+RUNS_DIR = PROJECT_ROOT / "runs/stage1_detectors"
+DET_BASE_NAME = {
+    "yolov9m": "YOLOv9-m", "yolov10m": "YOLOv10-m", "yolo11m": "YOLO11-m",
+    "yolo12m": "YOLO12-m", "yolo26m": "YOLO26-m", "rtdetr_l": "RT-DETR-L",
+}
+DET_ORDER = ["rtdetr_l", "yolo26m", "yolov10m", "yolo11m", "yolo12m", "yolov9m"]
+
+
+def table_per_class():
+    jsons = sorted(RUNS_DIR.glob("*/eval_results.json"))
+    if not jsons:
+        logger.warning("T3: no eval_results.json under %s -- skipping", RUNS_DIR)
+        return
+    # (detector_base, class) -> {"AP50": [...], "AP50_95": [...]}
+    agg: dict[tuple, dict[str, list]] = {}
+    for jp in jsons:
+        run = jp.parent.name
+        base = run.rsplit("_seed", 1)[0]
+        d = json.loads(jp.read_text(encoding="utf-8"))
+        pc = d.get("metrics", {}).get("per_class", {})
+        for cls, splits in pc.items():
+            ov = splits.get("overall", {})
+            a = agg.setdefault((base, cls), {"AP50": [], "AP50_95": []})
+            for k in ("AP50", "AP50_95"):
+                v = ov.get(k)
+                if isinstance(v, (int, float)) and not (isinstance(v, float) and np.isnan(v)):
+                    a[k].append(float(v))
+
+    def cell(base, cls, key):
+        vals = agg.get((base, cls), {}).get(key, [])
+        if not vals:
+            return "--", None
+        return f"{np.mean(vals):.3f}", float(np.mean(vals))
+
+    # best detector per (class, metric) for bolding
+    best = {}
+    for cls in CLASS_NAMES:
+        for key in ("AP50", "AP50_95"):
+            ranked = [(b, np.mean(agg[(b, cls)][key]))
+                      for b in DET_ORDER if (b, cls) in agg and agg[(b, cls)][key]]
+            if ranked:
+                best[(cls, key)] = max(ranked, key=lambda kv: kv[1])[0]
+
+    body = []
+    for base in DET_ORDER:
+        if not any((base, c) in agg for c in CLASS_NAMES):
+            continue
+        cells = []
+        for cls in CLASS_NAMES:
+            for key in ("AP50", "AP50_95"):
+                txt, _ = cell(base, cls, key)
+                if best.get((cls, key)) == base and txt != "--":
+                    txt = bold(txt)
+                cells.append(txt)
+        body.append(f"    {DET_BASE_NAME.get(base, base)} & " + " & ".join(cells) + " \\\\")
+    header = ("    & \\multicolumn{2}{c}{LV (large)} & "
+              "\\multicolumn{2}{c}{MV (medium)} & \\multicolumn{2}{c}{SV (small)} \\\\\n"
+              "    \\cmidrule(lr){2-3}\\cmidrule(lr){4-5}\\cmidrule(lr){6-7}\n"
+              "    Detector & AP@.5 & AP@.5:.95 & AP@.5 & AP@.5:.95 "
+              "& AP@.5 & AP@.5:.95 \\\\")
+    note = ("Mean over 5 seeds, overall test set; best per column in bold. "
+            "Classes: LV = large (truck/bus), MV = medium (car/van/pickup), "
+            "SV = small (motorcycle). SV is hardest at the strict AP@.5:.95 "
+            "(small objects, tight-localisation penalty), despite high AP@.5. "
+            "Per-seed std is small ($\\leq$0.01) and omitted for width.")
+    write("T3_per_class.tex", wrap_table(
+        "\n".join(body), "Per-class detection accuracy (AP) by detector.",
+        "tab:perclass", "lcccccc", header, note))
+
+
 def main() -> int:
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     table_dataset()
     table_detectors()
+    table_per_class()
     table_trackers()
     table_trajectory()
     table_gtfree()

@@ -161,9 +161,17 @@ def reconcile_classes(
 def copy_label_with_remap(
     src: Path, dst: Path, remap: dict[int, int], num_classes: int,
 ) -> Counter:
-    """Copy a YOLO label, rewriting class IDs through `remap`. Returns class Counter."""
+    """Copy a YOLO label, rewriting class IDs through `remap`. Returns class Counter.
+
+    Exact-duplicate boxes (identical remapped line) are dropped: the source
+    Roboflow export contains ~0.8% duplicate annotations (almost all MV), which
+    are an annotation bug that inflates ground-truth false-negatives and deflates
+    AP under any evaluator that does not de-duplicate. See decision_log.
+    """
     counts: Counter = Counter()
     out_lines: list[str] = []
+    seen: set[str] = set()
+    for_dupes = 0
     with src.open("r", encoding="utf-8") as f:
         for raw in f:
             line = raw.strip()
@@ -190,8 +198,15 @@ def copy_label_with_remap(
                 )
                 continue
             parts[0] = str(new_id)
-            out_lines.append(" ".join(parts))
+            out_line = " ".join(parts)
+            if out_line in seen:          # exact-duplicate box -> drop
+                for_dupes += 1
+                continue
+            seen.add(out_line)
+            out_lines.append(out_line)
             counts[new_id] += 1
+    if for_dupes:
+        logging.info("Dropped %d exact-duplicate label(s) from %s", for_dupes, src.name)
     dst.write_text("\n".join(out_lines) + ("\n" if out_lines else ""), encoding="utf-8")
     shutil.copystat(src, dst)
     return counts
