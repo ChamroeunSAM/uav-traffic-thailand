@@ -23,28 +23,29 @@ to Option B. Stage 4 is complete — all four phases (A–D) done; the
 trajectory-quality framework is run and the D4 hypothesis tested.** The
 Paper 1 methodology arc is finished; what remains is paper-writing.
 
-> **Next session starts here (2026-06-04):** **Stage 4 is COMPLETE.**
-> Phase C (the 3-axis trajectory-quality framework) is implemented
-> (`src/evaluation/trajectory_metrics.py`, `scripts/04_eval_trajectories.py`)
-> and run over all 4 clips × 4 linked trackers + the GT ceiling →
-> `results/stage4/trajectory_metrics.csv` (50 rows). Phase D (validate +
-> test the pre-registered hypothesis) is done and written up in
-> `docs/decision_log.md` **D4 Resolution**. **Headline (D4 hypothesis
-> outcome): the anticipated KF-smoothing inversion did NOT occur —
-> rankings AGREE.** ByteTrack/BoT-SORT lead on *both* identity
-> (completeness 0.95, ID switches 149/132) and plausibility (raw
-> `frac_accel_ok` 0.85 vs OC-SORT family 0.72; smoothed mean jerk 22 vs
-> 28); OC-SORT's weaker association injects more kinematic noise than its
-> Kalman filter removes. So for these clips box metrics are a validated
-> cheap proxy for trajectory quality. **Nuance:** positional ADE ≈ 3 mm
-> across all trackers (GT shares RT-DETR detection provenance from the
-> semi-automatic Stage 2 seeding) — the discriminating Axis-2 signal lives
-> entirely in the differentiated speed/heading channels, exactly D4's
-> point. Evaluator validated GT-vs-self (all axes perfect). ★ NEXT: this
-> is now paper-writing, not pipeline — assemble the final
-> trajectory-quality table from the Stage 4 CSV, and the author syncs
-> `docs/methodology.docx`. Optional pipeline polish remains (per-class
-> Stage 1 aggregation; `docs/annotation_guide.md` stub).
+> **Next session starts here (2026-06-04):** **All five stages COMPLETE;
+> the project is in the paper-assembly phase.** Beyond Stages 1–4, this
+> session added: (1) a **GT-free generalisation test** — the Axis-3
+> framework + self-consistency proxies scored two *new, unlabelled* 5-min
+> 120 m intersection clips (`120_m_DJI_0001_5min`, `120_m_DJI_0041_5min`;
+> hard-linked into `data/video_clips/`, GCP-calibrated) with NO ground
+> truth → `results/stage4/trajectory_metrics_gtfree.csv`. **Result
+> replicates the labelled benchmark with zero GT:** ByteTrack/BoT-SORT
+> lead on self-consistency (seg/track ~2.1 vs ~3.7, teleport splits 80–94
+> vs 200–207) *and* plausibility (raw accel-ok 0.86 vs 0.77, jerk 21 vs
+> 26). (2) **Paper materials generated under `paper/`** — 7 booktabs tables
+> (`scripts/make_paper_tables.py` → T1 dataset, T2 detectors, T3 per-class,
+> T4 trackers, T5/T5b trajectory, T6 GT-free, T7 calibration) and 8 figures
+> (`scripts/make_paper_figures.py` → F1 pipeline-spec text, F2 scene
+> gallery, F3 detector accuracy-vs-FPS Pareto, F4 box-vs-trajectory, F5
+> smoothing, F6a/F6b plausibility ECDFs, F7 roundabout spaghetti, F8
+> calibration overlay, F9 GT-free bars). (3) **Duplicate-label bug fixed
+> (decision_log D5)** — deduped GT + Stage-1 re-eval (numbers above).
+> ★ NEXT (paper-writing, not pipeline): author drafts the results text
+> around these tables/figures and syncs `docs/methodology.docx`; verify the
+> inferred **scene-type labels** in F2/T1 (e.g. is 0001 a roundabout?);
+> optional `docs/annotation_guide.md` stub. Optional figures not built: F3
+> already done; none pending except author choices.
 
 - [x] Stage 0: data-preparation pipeline
       (`00_split_raw_export.py` → `01_rename_with_altitude_prefix.py`
@@ -61,15 +62,20 @@ Paper 1 methodology arc is finished; what remains is paper-writing.
       overblown
 - [x] **Stage 1 detector benchmark complete (5 seeds × 6 detectors,
       ~58 GPU-hours wall-clock).** Final ranking by overall mAP50 /
-      mAP50-95 on the stratified test set:
-        1. RT-DETR-L  0.9628 / 0.8747
-        2. YOLO26-m   0.9545 / 0.8635
-        3. YOLOv10-m  0.9514 / 0.8563
-        4. YOLO11-m   0.9319 / 0.8399
-        5. YOLO12-m   0.9312 / 0.8372
-        6. YOLOv9-m   0.9300 / 0.8335
+      mAP50-95 on the stratified test set (deduped GT — see decision_log
+      D5; pre-dedupe values were ~0.003 lower, ranking identical):
+        1. RT-DETR-L  0.9633 / 0.8756
+        2. YOLO26-m   0.9579 / 0.8661
+        3. YOLOv10-m  0.9536 / 0.8582
+        4. YOLO11-m   0.9353 / 0.8433
+        5. YOLO12-m   0.9345 / 0.8407
+        6. YOLOv9-m   0.9333 / 0.8370
       Std across seeds ≤ 0.002 everywhere — ranking is stable.
-      100 m beats 120 m by ~1.5-2 pts mAP50 universally
+      100 m beats 120 m by ~1.5-2 pts mAP50 universally. Per-class:
+      RT-DETR-L wins every class; SV (motorcycles) is hardest at
+      mAP50-95 (~0.75-0.79 vs ~0.88-0.95 LV/MV); YOLO11/12/v9-m tie on
+      MV (the easy dominant class) and separate only on LV/SV (real,
+      reproduced by native val — D5)
 - [x] Stage 1 pipeline + supporting infrastructure
       (`01_train_detector.py`, `01_eval_detector.py`,
       `run_benchmark.py`); chunked-prediction OOM fix landed during
@@ -153,8 +159,13 @@ Paper 1 methodology arc is finished; what remains is paper-writing.
       archived at `tracker_outputs/_personreid_archive/`; person-ReID
       metrics preserved at commit `6078260`. `--half` (FP16) also fixed
       a near-OOM / ~9× slowdown the FP32 CLIP encoder hit on dense clips
-- [ ] Per-class mean/std aggregation for the Stage 1 class-difficulty
-      table (`aggregate_runs()` reports overall + 100m/120m only)
+- [x] Per-class detection table built (`paper/tables/T3_per_class.tex`,
+      via `make_paper_tables.py` from per-seed `eval_results.json`); the
+      Stage 1 class-difficulty result is now reported
+- [x] **Duplicate-label bug found and fixed (decision_log D5)** — source
+      export had ~0.8% exact-duplicate boxes (~98% MV); `00_prepare_splits.py`
+      now dedupes; 30 Stage-1 evals re-run on cleaned GT (+~0.003 mAP,
+      ranking unchanged); weights untouched
 - [ ] `docs/annotation_guide.md` — currently a one-line TODO stub
 - [ ] `docs/methodology.docx` — author must manually sync to current
       decision log + add the final 6-detector results table
@@ -335,8 +346,13 @@ uav-traffic-thailand/
 │   └── annotation_guide.md      ← TODO stub; informal guidelines only
 ├── runs/                        ← gitignored — training run outputs (weights, logs)
 ├── results/                     ← committed — aggregated metrics CSVs
-│   ├── stage1/                  ← detector benchmark CSVs
-│   └── stage3/                  ← tracker_metrics.csv (raw + linked, per clip × tracker × scope)
+│   ├── stage1/                  ← detector benchmark CSVs (+ inference_speed.csv)
+│   ├── stage3/                  ← tracker_metrics.csv (raw + linked, per clip × tracker × scope)
+│   └── stage4/                  ← trajectory_metrics.csv + trajectory_metrics_gtfree.csv
+├── paper/                       ← manuscript assets (committed)
+│   ├── tables/                  ← T1–T7 booktabs .tex (make_paper_tables.py)
+│   ├── figures/                 ← F1 text spec + F2–F9 PNG/PDF (make_paper_figures.py)
+│   └── references.bib
 ├── scripts/
 │   ├── setup_environment.ps1                ← reproduce the venv from scratch
 │   ├── 00_prepare_splits.py                 ← merge per-altitude Roboflow exports
@@ -354,6 +370,8 @@ uav-traffic-thailand/
 │   ├── 04_extract_trajectories.py           ← Stage 4 trajectory extraction (scaffolded)
 │   ├── 04_eval_trajectories.py              ← Stage 4 trajectory-quality metrics (scaffolded)
 │   ├── run_benchmark.py                     ← orchestrate full 6×5 Stage 1 sweep
+│   ├── make_paper_tables.py                 ← emit paper/tables/*.tex from result CSVs
+│   ├── make_paper_figures.py                ← emit paper/figures/* (per-figure CLI)
 │   └── run_all_experiments.ps1              ← top-level driver (Stage 1+)
 └── src/
     ├── detectors/
@@ -508,15 +526,42 @@ authoritative sources:
 
 ## 10. Recent Activity
 
-Last 5 commits (refresh periodically):
+Last commits (refresh periodically):
 
 ```
+33a9a62  Dedupe duplicate GT labels; re-eval Stage 1; add per-class table (T3)
+6194520  Add F3 detector accuracy-vs-speed (Pareto) + FPS timing harness
+36f394d  Add F2 scene gallery (6 clips, box overlays coloured by class)
+4b38f3a  Add F8 calibration overlay (GCP quad + reprojected 10 m grid)
+a9aacc6  Polish F4 (legend) and F7 (aspect)
+a225077  Add F7 trajectory spaghetti (roundabout GT, speed-coloured)
+5695f69  Add paper figure generator + F1 framework text, F5/F6a/F6b
+fbd308e  Add paper table generator + emit T1/T2/T4/T5/T5b/T7 (LaTeX booktabs)
+a95be39  GT-free generalisation on two 120 m clips: benchmark ranking holds
+e4015cf  Add GT-free trajectory scoring (Axis-3 + self-consistency proxies)
 671a2ba  Stage 4 Phase C: trajectory-quality metrics (3-axis D4 eval)
-8ec04b1  Refresh CLAUDE.md: Stage 4 Phases A+B done, Phase C next
-a180988  Stage 4 Phase B: world-trajectory extraction (smooth + kinematics)
-c6cb22d  Fill GCPs for all 4 clips; fit homographies; add scale-consistency check
-7a763ea  Stage 4 Phase A: image-to-world calibration + decision-log D4
 ```
+
+**Stage-1 dedupe + per-class table (`33a9a62`, 2026-06-04).** Found a
+duplicate-label annotation bug (~0.8% exact-duplicate boxes, ~98% MV) via a
+T3 cross-check; deduped in the pipeline + re-ran the 30 Stage-1 evals on
+cleaned GT (decision_log **D5**). All detectors +~0.003 mAP, ranking
+unchanged. Confirmed the MV per-class tie among YOLO11/12/v9-m is *real*
+(native val reproduces it), not an artifact. Also recorded the supervision
+vs native-val ~0.011 offset (implementation difference; supervision kept as
+canonical, native used only as cross-check).
+
+**Paper materials + GT-free generalisation (`e4015cf`…`6194520`,
+2026-06-04).** Added `scripts/make_paper_tables.py` (7 booktabs tables →
+`paper/tables/`) and `scripts/make_paper_figures.py` (8 figures →
+`paper/figures/`), all reproducible from the committed CSVs/JSONs. Ran a
+**GT-free** evaluation on two new unlabelled 5-min 120 m intersection clips
+(Axis-3 plausibility + self-consistency proxies, no ground truth) →
+`results/stage4/trajectory_metrics_gtfree.csv`; the labelled-benchmark
+ranking (ByteTrack/BoT-SORT ahead of the OC-SORT family) **replicates with
+zero GT** — the framework's reusability claim, demonstrated. New-clip
+inputs (clips, GCP specs, fitted homographies) live under gitignored
+`data/`; GCP specs are committed in `configs/calibration/`.
 
 **Stage 4 Phases C+D — trajectory-quality framework (`671a2ba`,
 2026-06-04). Stage 4 (and the Paper 1 methodology arc) is COMPLETE.**
