@@ -457,7 +457,7 @@ def fig_detectors():
              for r in csv.DictReader(STAGE1_SPEED.open(encoding="utf-8"))}
 
     pts = [(d, speed[d], acc[d][0]) for d in DET_DISPLAY if d in speed and d in acc]
-    fig, ax = plt.subplots(figsize=(6.6, 4.8))
+    fig, ax = plt.subplots(figsize=(7.8, 4.8))
     # Pareto frontier (upper-right is best): scanning from fastest, keep points
     # whose accuracy exceeds everything faster than them.
     front, best_acc = [], -1.0
@@ -468,16 +468,26 @@ def fig_detectors():
     ax.plot([f for f, _ in front], [a for _, a in front],
             color="0.6", ls="--", lw=1.0, zorder=1, label="Pareto frontier")
 
+    # per-detector label offsets (dx, dy in pts, horizontal alignment) so labels
+    # stay inside the box and clear of each other / the right edge
+    LBL = {
+        "rtdetr_l": (10, 2, "left"), "yolo12m": (0, 11, "center"),
+        "yolov9m": (0, -16, "center"), "yolo26m": (6, 8, "left"),
+        "yolo11m": (0, -16, "center"), "yolov10m": (6, 8, "left"),
+    }
     for d, fps, a in pts:
         is_rt = d == "rtdetr_l"
         ax.scatter([fps], [a], s=150 if is_rt else 110,
                    c="#D55E00" if is_rt else "#0072B2",
                    marker="*" if is_rt else "o",
                    edgecolors="black", linewidths=0.8, zorder=4)
+        dx, dy, ha = LBL.get(d, (8, 6, "left"))
         ax.annotate(DET_DISPLAY[d], (fps, a), textcoords="offset points",
-                    xytext=(8, 6 if d != "yolo12m" else -12), fontsize=9.5)
-    ax.set_xlabel("inference speed (FPS, 1280 px, batch 1, FP32, RTX 5090)  →  faster")
-    ax.set_ylabel("mAP@.5:.95  (overall)  →  more accurate")
+                    xytext=(dx, dy), ha=ha, fontsize=9.5)
+    ax.set_xlim(40, 180)
+    ax.set_ylim(0, 1)
+    ax.set_xlabel("Inference speed")
+    ax.set_ylabel("mAP50:95 (overall)")
     ax.set_title("Detector accuracy vs. inference cost")
     ax.legend(loc="lower left", fontsize=9, frameon=True)
     ax.grid(True, alpha=0.25)
