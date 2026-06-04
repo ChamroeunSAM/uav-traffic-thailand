@@ -525,5 +525,64 @@ GCP specs + scripts).
 - Phase C: trajectory metrics + eval CLI → results CSV.
 - Phase D: validate, compare against the pre-registered hypothesis, refresh
   CLAUDE.md.
+
+**D4 Resolution — Phases C + D (2026-06-04).** The three-axis framework is
+implemented (`src/evaluation/trajectory_metrics.py`,
+`scripts/04_eval_trajectories.py`) and run over all four clips × four
+linked trackers + the GT ceiling →
+`results/stage4/trajectory_metrics.csv` (50 rows: clip × source × {raw,
+smoothed} variant, plus per-source `ALL` aggregates). GT↔prediction
+correspondence is per-frame greedy nearest matching in world metres
+(gate 5 m) — Stage 3 matches boxes by pixel IoU, but Axis 2 needs metric
+correspondence to measure world-space position/speed error. Evaluator
+validated GT-vs-self: completeness/frag = 1.0, ID switches = 0,
+ADE/speed/heading error = 0.
+
+**Hypothesis outcome — the anticipated inversion did NOT occur (agreement,
+not divergence).** The pre-registered prediction was BoT-SORT/ByteTrack as
+the best feedstock, with an explicitly-anticipated *testable inversion*
+where the Kalman-filtered OC-SORT family might win Axis 3 (plausibility)
+despite losing Axis 1 (identity). The data rejects the inversion:
+ByteTrack/BoT-SORT lead on **both** axes (clip-averaged, smoothed unless
+noted):
+
+  - Axis 1 (identity): ByteTrack/BoT-SORT completeness 0.95, ID switches
+    149 / 132, frags/GT 2.22 / 2.09; OC-SORT/Deep OC-SORT completeness
+    0.91, switches 249 / 202, frags 2.41 / 2.36. Confirms the Stage 3
+    ranking (largely redundant with IDF1/IDSW, as predicted).
+  - Axis 2 (kinematic accuracy vs GT): ByteTrack best (speed MAE
+    0.029 m/s, heading 0.29°); OC-SORT worst (0.045 m/s, 0.44°).
+  - Axis 3 (GT-free plausibility): ByteTrack/BoT-SORT raw
+    `frac_accel_ok` 0.85 / 0.84 vs OC-SORT family 0.72; smoothed mean
+    jerk 22 / 23 vs 28. OC-SORT is *less* physically plausible, not more.
+
+Mechanism: BoxMOT OC-SORT's Kalman smoothing does denoise an individual
+box, but its weaker association produces more identity errors — visible as
+markedly more teleport splits at extraction (e.g. on `120_m_DJI_0047`:
+OC-SORT 59 / Deep OC-SORT 69 vs ByteTrack 23 / BoT-SORT 25) — and those
+inject more kinematic noise than the KF removes. **So for these clips the
+box-metric ranking is a validated cheap proxy for trajectory quality
+(rankings agree).** This is a clean result, but it is the *opposite* of the
+anticipated inversion; recorded as-is (the pre-registration stands as
+written — the value of Stage 4 is the framework + the test, and a refuted
+prediction is still a finding).
+
+**Substantive nuance — positional ADE is uninformative under
+semi-automatic GT.** ADE/FDE/position-RMSE are near-zero across all
+trackers (ADE ≈ 3 mm; at 120 m ≈ 0.04 m/px that is <0.1 px) because the
+Stage 2 GT was *seeded* from RT-DETR + ByteTrack pseudo-tracks and the
+Stage 3 trackers share the same RT-DETR detections — for any box the human
+did not move, GT and prediction are pixel-identical, so world-space box
+overlap is near-identical by construction. The entire discriminating
+Axis-2 signal therefore lives in the **differentiated** channels (speed
+MAE, heading error), which is precisely D4's thesis: two trackers with
+near-identical box overlap (and HOTA/LocA) still differ measurably in
+kinematics, and IoU-threshold matching cannot see it. Report Axis 2 via
+the speed/heading channels; treat the raw position errors as a provenance
+artifact of semi-automatic GT, not a tracker-quality signal.
+
+**Status: D4 fully resolved; Stage 4 (and the Paper 1 methodology arc) is
+complete.** Remaining work is paper-writing, not pipeline: the final
+trajectory-quality table, and author sync of `docs/methodology.docx`.
 ---
 

@@ -17,36 +17,34 @@ benchmark deliverable is in hand.** All six detectors × five seeds (30
 trained models, 30 stratified test evaluations) committed to
 `results/stage1/`. RT-DETR-L wins on every metric; tight three-tier
 separation across the six. **Stage 2 is complete (all 4 clips annotated
-in CVAT and exported to ground truth); Stage 3 has produced its first
-real results — the full 4-tracker × 4-clip dual (raw + linked)
-benchmark is scored, and D3 is resolved to Option B.** Stage 4 remains
-scaffolded.
+in CVAT and exported to ground truth); Stage 3 is complete — the full
+4-tracker × 4-clip dual (raw + linked) benchmark is scored, D3 resolved
+to Option B. Stage 4 is complete — all four phases (A–D) done; the
+trajectory-quality framework is run and the D4 hypothesis tested.** The
+Paper 1 methodology arc is finished; what remains is paper-writing.
 
-> **Next session starts here (2026-06-03):** Stage 2 annotation is done
-> (GT for all 4 clips at `data/video_annotations/ground_truth/`) and the
-> Stage 3 tracker benchmark has been run, scored, and committed
-> (`results/stage3/tracker_metrics.csv`). **D3 is locked to Option B**
-> (keep the comparative 4-tracker benchmark; see `docs/decision_log.md`
-> D3 Resolution). Headline: post-linker ByteTrack/BoT-SORT lead
-> (HOTA ≈ 0.89, IDF1 ≈ 0.87), OC-SORT family trails on association;
-> linking lifts every tracker (+0.06–0.11 IDF1). **Vehicle ReID swap
-> done** — canonical ReID is now `clip_veri.pt` (VeRi-776, FP16); it
-> moved every metric ≤ 0.003 vs the person-ReID baseline, a reportable
-> null result (association is motion/IoU-dominated from overhead; see
-> decision_log D3 follow-up). Stage 3 results are reported as the average
-> across the four clips, class-agnostic (no per-class breakdown — author
-> preference). **Stage 4 is underway (framing = decision_log D4):**
-> Phase A (calibration) and Phase B (trajectory extraction) are both
-> DONE & validated. All 4 clips have fitted homographies
-> (`data/video_annotations/calibration/`, from committed GCP specs) and
-> world-trajectory `.npz` files (`…/trajectories/`) with smoothed
-> kinematics. Sanity holds: GT speeds are physically plausible (0006
-> roundabout median 21 km/h) and the botsort-linked trajectories match GT
-> (median/95th 21.1/38.2 km/h). ★ NEXT: **Phase C** — implement
-> `src/evaluation/trajectory_metrics.py` + `04_eval_trajectories.py` (the
-> 3-axis metrics: identity persistence, accuracy vs GT, intrinsic
-> plausibility), run over all 4 trackers' linked outputs + GT ceiling,
-> and test the D4 pre-registered hypothesis.
+> **Next session starts here (2026-06-04):** **Stage 4 is COMPLETE.**
+> Phase C (the 3-axis trajectory-quality framework) is implemented
+> (`src/evaluation/trajectory_metrics.py`, `scripts/04_eval_trajectories.py`)
+> and run over all 4 clips × 4 linked trackers + the GT ceiling →
+> `results/stage4/trajectory_metrics.csv` (50 rows). Phase D (validate +
+> test the pre-registered hypothesis) is done and written up in
+> `docs/decision_log.md` **D4 Resolution**. **Headline (D4 hypothesis
+> outcome): the anticipated KF-smoothing inversion did NOT occur —
+> rankings AGREE.** ByteTrack/BoT-SORT lead on *both* identity
+> (completeness 0.95, ID switches 149/132) and plausibility (raw
+> `frac_accel_ok` 0.85 vs OC-SORT family 0.72; smoothed mean jerk 22 vs
+> 28); OC-SORT's weaker association injects more kinematic noise than its
+> Kalman filter removes. So for these clips box metrics are a validated
+> cheap proxy for trajectory quality. **Nuance:** positional ADE ≈ 3 mm
+> across all trackers (GT shares RT-DETR detection provenance from the
+> semi-automatic Stage 2 seeding) — the discriminating Axis-2 signal lives
+> entirely in the differentiated speed/heading channels, exactly D4's
+> point. Evaluator validated GT-vs-self (all axes perfect). ★ NEXT: this
+> is now paper-writing, not pipeline — assemble the final
+> trajectory-quality table from the Stage 4 CSV, and the author syncs
+> `docs/methodology.docx`. Optional pipeline polish remains (per-class
+> Stage 1 aggregation; `docs/annotation_guide.md` stub).
 
 - [x] Stage 0: data-preparation pipeline
       (`00_split_raw_export.py` → `01_rename_with_altitude_prefix.py`
@@ -125,8 +123,15 @@ scaffolded.
       the nearest PSD matrix only when a factorization would crash (no
       hyperparameter change, locked env untouched). Without it the
       benchmark would have been 3 trackers
-- [in progress] Stage 4 trajectory utilities scaffolded
-      (`src/trajectory/{calibration, kinematics, smoothing}.py`)
+- [x] **Stage 4 complete (Phases A–D).** Per-clip homographies + world
+      trajectories (`src/trajectory/{calibration,kinematics,smoothing}.py`)
+      feed the 3-axis trajectory-quality framework
+      (`src/evaluation/trajectory_metrics.py`,
+      `scripts/04_eval_trajectories.py`) →
+      `results/stage4/trajectory_metrics.csv` (50 rows). D4 hypothesis
+      tested: rankings agree (no KF-smoothing inversion); ByteTrack/
+      BoT-SORT lead identity *and* plausibility. See decision_log D4
+      Resolution.
 - [x] Stage 1 benchmark commits pushed to `origin/master` (the
       benchmark is now backed up off the local machine)
 - [x] **Stage 2/3 pipeline committed and pushed** (`cbfea1a`) — CVAT
@@ -212,16 +217,22 @@ conversion (`src/trajectory/calibration.py`), kinematic feature
 extraction (`kinematics.py`), and smoothing (`smoothing.py`) feed
 `src/evaluation/trajectory_metrics.py`. *Framing locked (decision_log
 **D4**) — including why box metrics don't subsume trajectory quality and
-a pre-registered Stage 3 hypothesis. **Phases A + B done & validated.**
-Phase A: per-clip ground-plane homography from road-marking GCPs
-(`00_calibrate.py`, `calibration.py`, `docs/calibration_protocol.md`,
+a pre-registered Stage 3 hypothesis. **COMPLETE (Phases A–D).** Phase A:
+per-clip ground-plane homography from road-marking GCPs (`00_calibrate.py`,
+`calibration.py`, `docs/calibration_protocol.md`,
 `configs/calibration/<clip>.gcp.yaml`) — all 4 clips fitted, scale
 cross-validates (100 m ≈0.030, 120 m ≈0.040 m/px). Phase B: world
 trajectories with smoothed kinematics (`smoothing.py` Savitzky–Golay,
 `kinematics.py`, `04_extract_trajectories.py`) — splits at long gaps and
-physically-impossible jumps; GT speeds plausible and tracker matches GT.
-Phase C (`trajectory_metrics.py`, `04_eval_trajectories.py`) still
-stubs — the 3-axis metrics + hypothesis test are next.*
+physically-impossible jumps. Phase C: the 3-axis metrics
+(`trajectory_metrics.py`, `04_eval_trajectories.py`) with per-frame
+greedy world-space GT↔pred matching, both raw and smoothed variants →
+`results/stage4/trajectory_metrics.csv`. Phase D: hypothesis tested
+(decision_log **D4 Resolution**) — rankings agree (the anticipated
+KF-smoothing inversion did not occur); ByteTrack/BoT-SORT lead identity
+and plausibility, so box metrics are a validated cheap proxy here.
+Positional ADE ≈ 3 mm (GT shares detector provenance) — the Axis-2 signal
+is in the differentiated speed/heading channels.*
 
 ## 4. Key Architectural Decisions
 
@@ -500,12 +511,36 @@ authoritative sources:
 Last 5 commits (refresh periodically):
 
 ```
+671a2ba  Stage 4 Phase C: trajectory-quality metrics (3-axis D4 eval)
+8ec04b1  Refresh CLAUDE.md: Stage 4 Phases A+B done, Phase C next
 a180988  Stage 4 Phase B: world-trajectory extraction (smooth + kinematics)
 c6cb22d  Fill GCPs for all 4 clips; fit homographies; add scale-consistency check
 7a763ea  Stage 4 Phase A: image-to-world calibration + decision-log D4
-d5e4296  Adopt vehicle ReID (clip_veri, FP16) for Stage 3; null result recorded
-6078260  Run Stage 3 tracker benchmark on real GT; fix Deep OC-SORT; lock D3 Option B
 ```
+
+**Stage 4 Phases C+D — trajectory-quality framework (`671a2ba`,
+2026-06-04). Stage 4 (and the Paper 1 methodology arc) is COMPLETE.**
+Implemented the 3-axis D4 metrics (`src/evaluation/trajectory_metrics.py`,
+`scripts/04_eval_trajectories.py`): Axis 1 identity persistence
+(completeness, frags/GT, ID switches), Axis 2 kinematic accuracy vs GT
+(ADE/FDE/RMSE m, speed MAE, heading deg), Axis 3 GT-free plausibility
+(accel-in-bounds, jerk, curvature, speed). GT↔pred correspondence is
+per-frame greedy nearest matching in world metres (gate 5 m); all metrics
+reported for both raw and smoothed series. Ran over all 4 clips × 4 linked
+trackers + the GT ceiling, auto-extracting the 15 missing trajectory
+`.npz` on demand → `results/stage4/trajectory_metrics.csv` (50 rows).
+Evaluator validated GT-vs-self (completeness/frag = 1.0, switches = 0,
+ADE/speed/heading = 0). **D4 hypothesis outcome: the anticipated
+KF-smoothing inversion did NOT occur — rankings agree.** ByteTrack/BoT-SORT
+lead identity (completeness 0.95, switches 149/132) *and* plausibility
+(raw `frac_accel_ok` 0.85 vs OC-SORT family 0.72; smoothed mean jerk 22 vs
+28); OC-SORT's weaker association injects more kinematic noise than its KF
+removes — so box metrics are a validated cheap proxy here. Positional ADE
+≈ 3 mm across all trackers (GT shares RT-DETR detection provenance from
+semi-automatic Stage 2 seeding) — the Axis-2 signal is in the
+differentiated speed/heading channels, exactly D4's point. Full write-up:
+decision_log **D4 Resolution**. NEXT: paper-writing only (final
+trajectory-quality table + author sync of `methodology.docx`).
 
 **Stage 4 Phases A+B (`7a763ea`, `c6cb22d`, `a180988`, 2026-06-03).**
 Calibration: 4 per-clip homographies fitted from human GCPs (specs in
@@ -564,12 +599,13 @@ end-to-end:
   block; CLAUDE.md §2/§3 updated.
 
 Pending before the paper table is final: per-class aggregation polish
-(LV is N/A on `120_m_DJI_0006` — no GT large vehicles), and the Stage 4
-trajectory-quality build. (Vehicle ReID swap is done — see below.)
+(LV is N/A on `120_m_DJI_0006` — no GT large vehicles). (Vehicle ReID
+swap is done — see below; the Stage 4 trajectory-quality build is now
+done too — see the Phase C+D entry above.)
 
 ## 11. Document Maintenance
 
-Last refreshed: **2026-06-03**
+Last refreshed: **2026-06-04**
 
 If today is more than one month past that date, sections 2 (Current
 Status) and 10 (Recent Activity) may be stale. Other sections are more
