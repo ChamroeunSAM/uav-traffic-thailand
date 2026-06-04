@@ -249,12 +249,49 @@ def fig_boxvstraj():
     _save(fig, "F4_box_vs_trajectory")
 
 
+# --------------------------------------------------------------------------- #
+# F9 -- GT-free tracker ranking on the two new unlabelled 120 m clips
+# --------------------------------------------------------------------------- #
+STAGE4_GTFREE = PROJECT_ROOT / "results/stage4/trajectory_metrics_gtfree.csv"
+
+
+def fig_gtfree():
+    rows = list(csv.DictReader(STAGE4_GTFREE.open(encoding="utf-8")))
+    sm = {r["source"]: r for r in rows if r["clip"] == "ALL" and r["variant"] == "smoothed"}
+    rw = {r["source"]: r for r in rows if r["clip"] == "ALL" and r["variant"] == "raw"}
+
+    panels = [
+        ("sc_seg_per_track", sm, "segments per track", "↓ better", 2),
+        ("sc_teleport_breaks", sm, "impossible-jump splits", "↓ better", 0),
+        ("a3_frac_accel_ok", rw, "frac. |a| ≤ 8 m/s² (raw)", "↑ better", 3),
+        ("a3_jerk_mean_mps3", sm, "mean |jerk| (m/s³, smoothed)", "↓ better", 1),
+    ]
+    fig, axes = plt.subplots(2, 2, figsize=(7.2, 5.8))
+    names = [LABEL[t] for t in TRACKERS]
+    colors = [COLOR[t] for t in TRACKERS]
+    for ax, (col, src, ylab, better, dec) in zip(axes.flat, panels):
+        vals = [float(src[t][col]) for t in TRACKERS]
+        bars = ax.bar(names, vals, color=colors, edgecolor="black", linewidth=0.6)
+        ax.set_title(f"{ylab}   ({better})", fontsize=10.5)
+        ax.tick_params(axis="x", rotation=20, labelsize=9)
+        ax.grid(True, axis="y", alpha=0.25)
+        for b, v in zip(bars, vals):
+            ax.text(b.get_x() + b.get_width() / 2, v, f"{v:.{dec}f}",
+                    ha="center", va="bottom", fontsize=8.5)
+        ax.set_ylim(0, max(vals) * 1.18)
+    fig.suptitle("GT-free tracker ranking — two unlabelled 120 m clips "
+                 "(ByteTrack/BoT-SORT lead every axis)", fontsize=12)
+    fig.tight_layout(rect=[0, 0, 1, 0.96])
+    _save(fig, "F9_gtfree_ranking")
+
+
 FIGURES = {
     "accel": fig_accel,
     "jerk": fig_jerk,
     "smoothing": fig_smoothing,
     "spaghetti": fig_spaghetti,
     "boxvstraj": fig_boxvstraj,
+    "gtfree": fig_gtfree,
 }
 
 
