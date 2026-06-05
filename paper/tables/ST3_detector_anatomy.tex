@@ -1,0 +1,48 @@
+% Requires \usepackage{booktabs} and \usepackage{tabularx}. Spans both columns (table*).
+\begin{table*}[ht]
+  \centering
+  \caption{Structural decomposition of the six detectors (backbone / neck / head / post-processing).}
+  \label{tab:detector_anatomy}
+  \footnotesize
+  \setlength{\tabcolsep}{4pt}
+  \renewcommand{\arraystretch}{1.3}
+  \begin{tabularx}{\textwidth}{l *{6}{>{\centering\arraybackslash}X}}
+    \toprule
+     & YOLOv9-m & YOLOv10-m & YOLO11-m & YOLO12-m & YOLO26-m & RT-DETR-L \\
+    \midrule
+    Backbone
+     & GELAN (CNN)
+     & CSPNet + PSA
+     & C3k2 + C2PSA
+     & R-ELAN (area-attn.)
+     & C3k2-based CNN
+     & HGNetv2 \\
+    \addlinespace
+    Neck
+     & GELAN PAN-FPN
+     & PAN-FPN
+     & PAN-FPN w/ C3k2
+     & PAN-FPN (A$^2$ blocks)
+     & PAN-FPN
+     & Hybrid encoder (AIFI + CCFM) \\
+    \addlinespace
+    Head
+     & Decoupled AF (+PGI aux., train-only)
+     & Decoupled dual (1-to-1 + 1-to-many)
+     & Decoupled AF
+     & Decoupled AF
+     & End-to-end, DFL-free
+     & Transformer decoder + IoU-aware query sel. \\
+    \addlinespace
+    Post-proc.
+     & NMS
+     & None
+     & NMS
+     & NMS
+     & None
+     & None \\
+    \bottomrule
+  \end{tabularx}
+  \par\smallskip
+  \footnotesize ``AF'' = anchor-free; ``PGI aux.'' = programmable-gradient auxiliary branch, active only during training; ``A$^2$'' = area-attention. The five YOLO variants share the single-stage backbone--neck--head anatomy and differ in their constituent blocks; RT-DETR-L replaces the neck with a hybrid encoder (intra-scale AIFI + cross-scale CCFM) and the head with a transformer decoder, giving NMS-free set prediction. YOLO26-m and RT-DETR-L details should be confirmed against the trained checkpoints.
+\end{table*}

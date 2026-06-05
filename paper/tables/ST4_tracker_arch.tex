@@ -1,0 +1,52 @@
+% Requires \usepackage{booktabs} and \usepackage{tabularx}.
+\begin{table}[ht]
+  \centering
+  \caption{Mechanism-level comparison of the four trackers.}
+  \label{tab:tracker_arch}
+  \small
+  \setlength{\tabcolsep}{4pt}
+  \renewcommand{\arraystretch}{1.25}
+  \begin{tabularx}{\columnwidth}{l *{4}{>{\centering\arraybackslash}X}}
+    \toprule
+     & ByteTrack & BoT-SORT & OC-SORT & Deep OC-SORT \\
+    \midrule
+    Year / lineage
+     & 2022 / SORT
+     & 2022 / ByteTrack
+     & 2023 / SORT (OC)
+     & 2023 / OC-SORT \\
+    \addlinespace
+    Motion model
+     & Linear KF
+     & Improved KF (w,h)
+     & Obs.-centric KF
+     & Obs.-centric KF \\
+    \addlinespace
+    Appearance / ReID
+     & None
+     & VeRi-776 CLIP-ReID
+     & None
+     & VeRi-776 CLIP-ReID \\
+    \addlinespace
+    Camera-motion comp.
+     & No
+     & Yes (GMC)
+     & No
+     & Yes (CMC) \\
+    \addlinespace
+    Association
+     & IoU
+     & IoU + appearance
+     & IoU + OC momentum
+     & Motion + adapt. appearance \\
+    \addlinespace
+    Low-score (BYTE)
+     & Yes
+     & Yes
+     & No
+     & No \\
+    \bottomrule
+  \end{tabularx}
+  \par\smallskip
+  \footnotesize All four trackers share a single set of RT-DETR-L detections (``detect once, track four times'') ingested at \texttt{min\_conf}=0.1, so reported differences are purely in association. The roster forms a 2$\times$2 design over motion model (linear vs.\ observation-centric Kalman filter) and appearance (motion-only vs.\ ReID-augmented); ReID, where used, is the VeRi-776 CLIP-ReID vehicle encoder (FP16). ``Obs.-centric KF'' denotes OC-SORT's observation-centric re-update, momentum, and recovery (ORU/OCM/OCR). ``Low-score (BYTE)'' marks the two-stage association that also matches low-confidence detections (\texttt{use\_byte}; disabled for the OC-SORT family in our configs).
+\end{table}

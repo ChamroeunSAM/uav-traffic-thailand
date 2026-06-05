@@ -1,0 +1,40 @@
+% Requires \usepackage{booktabs}. Values are the committed Stage 3 BoxMOT configs.
+\begin{table}[ht]
+  \centering
+  \caption{Tracker hyperparameters (Stage 3 BoxMOT configs).}
+  \label{tab:tracker_hparams}
+  \small
+  \setlength{\tabcolsep}{5pt}
+  \begin{tabular}{lcccc}
+    \toprule
+    Parameter & ByteTrack & BoT-SORT & OC-SORT & Deep OC-SORT \\
+    \midrule
+    \multicolumn{5}{l}{\textit{Detection confidence}} \\
+    Input / low floor       & 0.1   & 0.1   & 0.1   & def. \\
+    Track (high) thresh     & 0.5   & 0.5   & def.  & def. \\
+    New-track thresh        & --    & 0.6   & --    & -- \\
+    \addlinespace
+    \multicolumn{5}{l}{\textit{Association}} \\
+    Match thresh (IoU)      & 0.8   & 0.8   & def.  & def. \\
+    Proximity gate (IoU)    & --    & 0.5   & --    & -- \\
+    Appearance gate (cos.)  & --    & 0.25  & --    & -- \\
+    $\delta t$ (OC window)  & --    & --    & 3     & 3 \\
+    Inertia                 & --    & --    & 0.2   & 0.2 \\
+    Appearance-emb.\ weight & --    & --    & --    & 0.5 \\
+    Appearance EMA $\alpha$ & --    & --    & --    & 0.95 \\
+    Adaptive weighting      & --    & --    & --    & 0.5 \\
+    \addlinespace
+    \multicolumn{5}{l}{\textit{Motion / appearance}} \\
+    KF proc.\ noise (xy / s)& def.  & def.  & def.  & 0.01 / 1e-4 \\
+    Camera-motion comp.     & --    & ECC   & --    & def. \\
+    ReID encoder            & --    & VeRi-776 & -- & VeRi-776 \\
+    Low-score (\texttt{use\_byte}) & yes$^\dagger$ & yes$^\dagger$ & false & false \\
+    \addlinespace
+    \multicolumn{5}{l}{\textit{Track management}} \\
+    Track buffer (frames)   & 60    & 60    & def.  & def. \\
+    Frame rate (fps)        & 30    & 30    & def.  & def. \\
+    \bottomrule
+  \end{tabular}
+  \par\smallskip
+  \footnotesize Values are the committed Stage 3 configs (\texttt{configs/trackers/boxmot/}); these are the settings used for the reported benchmark. ``--'' = not applicable to that tracker; ``def.'' = BoxMOT class default (unlisted in the config). All four trackers ingest the same RT-DETR-L detections at \texttt{min\_conf}=0.1. ReID (VeRi-776 CLIP-ReID, FP16) is supplied at runtime via \texttt{--reid-weights}. $^\dagger$BYTE-style two-stage low-score association is intrinsic to ByteTrack/BoT-SORT; it is an explicit \texttt{use\_byte}=false option for the OC-SORT family. Track buffer 60 frames $\approx$ 2\,s at 30\,fps (UAV occlusion survival).
+\end{table}

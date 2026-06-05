@@ -1,0 +1,20 @@
+% Requires \usepackage{booktabs}. Spans both columns (table*).
+\begin{table*}[ht]
+  \centering
+  \caption{Architectural characteristics of the six benchmarked detectors.}
+  \label{tab:detector_arch}
+  \begin{tabular}{llllccrrr}
+    \toprule
+    Model & Year & Paradigm & Backbone & Assignment & E2E & Param\,(M) & GFLOPs & FPS \\
+    \midrule
+    YOLOv9-m  & 2024 & CNN one-stage    & GELAN        & 1-to-many & No  & 20.2 & 310.2 & 118.6 \\
+    YOLOv10-m & 2024 & CNN one-stage    & CSPNet+PSA   & dual      & Yes & 16.5 & 255.9 & 161.4 \\
+    YOLO11-m  & 2024 & CNN one-stage    & C3k2+C2PSA   & 1-to-many & No  & 20.1 & 272.8 & 150.8 \\
+    YOLO12-m  & 2025 & CNN + area-attn. & R-ELAN       & 1-to-many & No  & 20.1 & 271.0 & 111.4 \\
+    YOLO26-m  & 2025 & CNN one-stage    & C3k2-based   & 1-to-one  & Yes & 21.8 & 298.9 & 138.4 \\
+    RT-DETR-L & 2023 & Transformer      & HGNetv2      & 1-to-one  & Yes & 32.8 & 421.7 & 55.4  \\
+    \bottomrule
+  \end{tabular}
+  \par\smallskip
+  \footnotesize All six detectors are anchor-free. ``Assignment'' is the training-time label-assignment scheme (1-to-many = task-aligned assignment with one-to-many matching; dual = consistent dual assignment; 1-to-one = bipartite/Hungarian matching). ``E2E'' marks end-to-end, NMS-free inference. Parameter count and GFLOPs are computed at the 1280$\times$1280 evaluation resolution and therefore exceed values commonly reported at 640; FPS is single-image fp32 inference throughput on one RTX\,5090 (from Table~\ref{tab:efficiency}). The roster spans NMS-based and end-to-end designs and both CNN and transformer paradigms. YOLO26-m and RT-DETR-L architectural details should be confirmed against the trained checkpoints.
+\end{table*}

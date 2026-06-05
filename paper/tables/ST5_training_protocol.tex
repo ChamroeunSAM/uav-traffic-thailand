@@ -1,0 +1,39 @@
+% Requires \usepackage{booktabs}. Values resolved from runs/.../args.yaml.
+\begin{table}[ht]
+  \centering
+  \caption{Shared detector training protocol.}
+  \label{tab:training_protocol}
+  \begin{tabular}{ll}
+    \toprule
+    Setting & Value \\
+    \midrule
+    Initialization        & COCO-pretrained weights \\
+    Epochs                & 100 (early stop, patience 20) \\
+    Image size            & 1280 $\times$ 1280 \\
+    Batch size            & 8 \,(4 for YOLO12-m) \\
+    Mixed precision (AMP) & enabled (training) \\
+    \addlinespace
+    Optimizer             & \texttt{auto} (SGD/AdamW heuristic) \\
+    Initial LR ($lr_0$)   & 0.01 \\
+    Final LR factor ($lr_f$) & 0.01 \\
+    LR schedule           & cosine \\
+    Momentum              & 0.937 \\
+    Weight decay          & 0.0005 \\
+    Warmup                & 3 epochs \\
+    Nominal batch ($nbs$) & 64 \\
+    Loss gains (box/cls/dfl) & 7.5 / 0.5 / 1.5 \\
+    \addlinespace
+    Mosaic                & 1.0 (off for final 10 epochs) \\
+    Horizontal flip       & 0.5 \\
+    HSV (h/s/v)           & 0.015 / 0.7 / 0.4 \\
+    Translate / scale     & 0.1 / 0.5 \\
+    RandAugment / erasing & on / 0.4 \\
+    Rotation/shear/persp./vflip & disabled (0) \\
+    \addlinespace
+    Seeds                 & 5 (0--4), deterministic \\
+    Hardware              & RTX\,5090 (32\,GB) \\
+    \bottomrule
+  \end{tabular}
+  \par\smallskip
+  \footnotesize Settings are identical across all six detectors except the batch size (8, or 4 for YOLO12-m owing to its area-attention memory footprint at 1280) and the COCO checkpoint loaded. Values are the resolved training arguments recorded by Ultralytics (\texttt{runs/.../args.yaml}); \texttt{optimizer: auto} lets Ultralytics select SGD or AdamW from the iteration budget. Training used mixed precision; the inference throughput in Table~\ref{tab:efficiency} was measured separately at FP32.
+\end{table}
