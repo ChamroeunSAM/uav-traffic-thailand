@@ -1,0 +1,19 @@
+\begin{table}[ht]
+  \centering
+  \caption{Detector complexity and inference efficiency.}
+  \label{tab:efficiency}
+  \begin{tabular}{lccc}
+    \toprule
+    Detector & Param\,(M) & GFLOPs & FPS \\
+    \midrule
+    RT-DETR-L & 32.8 & 421.7 & 55.4 \\
+    YOLO26-m & 21.8 & 298.9 & 138.4 \\
+    YOLOv10-m & \textbf{16.5} & \textbf{255.9} & \textbf{161.4} \\
+    YOLO11-m & 20.1 & 272.8 & 150.8 \\
+    YOLO12-m & 20.1 & 271.0 & 111.4 \\
+    YOLOv9-m & 20.2 & 310.2 & 118.6 \\
+    \bottomrule
+  \end{tabular}
+  \par\smallskip
+  \footnotesize Model complexity and throughput. Parameter count and GFLOPs are architecture constants computed at the 1280$\times$1280 evaluation resolution; FPS is single-image fp32 inference throughput on one RTX\,5090. Best per column in bold (fewest Param/GFLOPs, highest FPS). Detectors ordered as in Table~\ref{tab:detectors}. RT-DETR-L's accuracy lead (Table~\ref{tab:detectors}) comes at $\sim$2$\times$ the parameters and $\sim$3$\times$ the latency of the leading YOLOs.
+\end{table}

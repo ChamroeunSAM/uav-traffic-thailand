@@ -2,18 +2,18 @@
   \centering
   \caption{Detector benchmark: six detectors $\times$ five seeds.}
   \label{tab:detectors}
-  \begin{tabular}{lcccc}
+  \begin{tabular}{lcccccc}
     \toprule
-    Detector & mAP@.5 & mAP@.5:.95 & mAP@.5 (100\,m) & mAP@.5 (120\,m) \\
+    Detector & P & R & mAP@.5 & mAP@.5:.95 & mAP@.5 (100\,m) & mAP@.5 (120\,m) \\
     \midrule
-    \textbf{RT-DETR-L} & 0.963\,(0.002) & 0.876\,(0.002) & 0.969\,(0.002) & 0.958\,(0.003) \\
-    YOLO26-m & 0.958\,(0.002) & 0.866\,(0.001) & 0.963\,(0.003) & 0.953\,(0.003) \\
-    YOLOv10-m & 0.954\,(0.001) & 0.858\,(0.000) & 0.960\,(0.001) & 0.947\,(0.001) \\
-    YOLO11-m & 0.935\,(0.001) & 0.843\,(0.001) & 0.943\,(0.001) & 0.932\,(0.001) \\
-    YOLO12-m & 0.935\,(0.002) & 0.841\,(0.002) & 0.943\,(0.002) & 0.931\,(0.001) \\
-    YOLOv9-m & 0.933\,(0.001) & 0.837\,(0.001) & 0.941\,(0.000) & 0.928\,(0.002) \\
+    \textbf{RT-DETR-L} & 0.939\,(0.004) & 0.915\,(0.002) & 0.963\,(0.002) & 0.876\,(0.002) & 0.969\,(0.002) & 0.958\,(0.003) \\
+    YOLO26-m & 0.955\,(0.002) & 0.921\,(0.003) & 0.958\,(0.002) & 0.866\,(0.001) & 0.963\,(0.003) & 0.953\,(0.003) \\
+    YOLOv10-m & 0.954\,(0.003) & 0.920\,(0.003) & 0.954\,(0.001) & 0.858\,(0.000) & 0.960\,(0.001) & 0.947\,(0.001) \\
+    YOLO11-m & 0.958\,(0.003) & 0.924\,(0.002) & 0.935\,(0.001) & 0.843\,(0.001) & 0.943\,(0.001) & 0.932\,(0.001) \\
+    YOLO12-m & 0.956\,(0.002) & 0.924\,(0.002) & 0.935\,(0.002) & 0.841\,(0.002) & 0.943\,(0.002) & 0.931\,(0.001) \\
+    YOLOv9-m & 0.957\,(0.003) & 0.922\,(0.003) & 0.933\,(0.001) & 0.837\,(0.001) & 0.941\,(0.000) & 0.928\,(0.002) \\
     \bottomrule
   \end{tabular}
   \par\smallskip
-  \footnotesize Mean (std) over 5 seeds on the stratified test set; best per metric in bold. 100\,m exceeds 120\,m throughout. All detectors trained at 1280$\times$1280.
+  \footnotesize Mean (std) over 5 seeds on the stratified test set; top detector (by mAP@.5:.95) in bold. mAP is the canonical supervision metric; precision and recall are from Ultralytics' native validator at its operating point (the supervision evaluator does not expose P/R) and are reported for completeness. 100\,m exceeds 120\,m throughout. All detectors trained at 1280$\times$1280.
 \end{table}

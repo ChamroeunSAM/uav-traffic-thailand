@@ -8,12 +8,15 @@ Elsevier (TR-C) template directly.
 
 Tables emitted when their inputs exist:
   T1  dataset / study design        <- GT files + clip metadata
-  T2  detector benchmark            <- results/stage1/aggregated.csv
+  T2  detector benchmark            <- results/stage1/aggregated.csv (mAP) +
+                                       results/stage1/efficiency.csv (P/R, if present)
   T4  tracker benchmark             <- results/stage3/tracker_metrics.csv
   T5  trajectory quality (3-axis)   <- results/stage4/trajectory_metrics.csv
   T5b axis-3 smoothing effect       <- results/stage4/trajectory_metrics.csv
   T6  GT-free generalisation        <- results/stage4/trajectory_metrics_gtfree.csv (if present)
   T7  calibration summary           <- data/video_annotations/calibration/*.json
+  ST1 complexity / efficiency       <- results/stage1/efficiency.csv
+                                       (Params/GFLOPs/FPS; run eval_efficiency.py)
 
 Blocked (need a generation step, not emitted here):
   T3  per-class detection AP -- aggregated.csv has no per-class columns; needs a
@@ -38,6 +41,7 @@ OUT_DIR = PROJECT_ROOT / "paper/tables"
 GT_DIR = PROJECT_ROOT / "data/video_annotations/ground_truth"
 CALIB_DIR = PROJECT_ROOT / "data/video_annotations/calibration"
 STAGE1 = PROJECT_ROOT / "results/stage1/aggregated.csv"
+EFFICIENCY = PROJECT_ROOT / "results/stage1/efficiency.csv"  # P/R source for T2
 STAGE3 = PROJECT_ROOT / "results/stage3/tracker_metrics.csv"
 STAGE4 = PROJECT_ROOT / "results/stage4/trajectory_metrics.csv"
 STAGE4_GTFREE = PROJECT_ROOT / "results/stage4/trajectory_metrics_gtfree.csv"
@@ -180,8 +184,24 @@ def table_detectors():
     rows.sort(key=lambda r: float(r["overall_mAP50_95_mean"]), reverse=True)
     best = rows[0]["model_name"]
 
+    # P/R are not produced by the supervision mAP evaluator -> pull them from the
+    # native-validator pass (same stratified test set, 5-seed mean/std), keyed by
+    # detector base name (e.g. "rtdetr-l.pt" -> "rtdetr_l").
+    pr = {}
+    if EFFICIENCY.exists():
+        pr = {r["detector"]: r for r in csv.DictReader(EFFICIENCY.open(encoding="utf-8"))}
+
+    def base_of(model_name):
+        return model_name.replace(".pt", "").replace("-", "_")
+
     def cell(mean, std):
         return f"{f(mean)}\\,({f(std, 3)})"
+
+    def pr_cell(model_name, kind):
+        e = pr.get(base_of(model_name))
+        if not e:
+            return "--"
+        return cell(e[f"{kind}_mean"], e[f"{kind}_std"])
 
     body_lines = []
     for r in rows:
@@ -189,19 +209,72 @@ def table_detectors():
         disp = bold(name) if r["model_name"] == best else name
         body_lines.append(
             f"    {disp} & "
+            f"{pr_cell(r['model_name'], 'precision')} & "
+            f"{pr_cell(r['model_name'], 'recall')} & "
             f"{cell(r['overall_mAP50_mean'], r['overall_mAP50_std'])} & "
             f"{cell(r['overall_mAP50_95_mean'], r['overall_mAP50_95_std'])} & "
             f"{cell(r['100m_mAP50_mean'], r['100m_mAP50_std'])} & "
             f"{cell(r['120m_mAP50_mean'], r['120m_mAP50_std'])} \\\\")
-    header = ("    Detector & mAP@.5 & mAP@.5:.95 & mAP@.5 (100\\,m) "
+    header = ("    Detector & P & R & mAP@.5 & mAP@.5:.95 & mAP@.5 (100\\,m) "
               "& mAP@.5 (120\\,m) \\\\")
     note = (f"Mean (std) over {rows[0]['n_seeds']} seeds on the stratified test "
-            "set; best per metric in bold. 100\\,m exceeds 120\\,m throughout. "
-            "All detectors trained at 1280$\\times$1280.")
+            "set; top detector (by mAP@.5:.95) in bold. mAP is the canonical "
+            "supervision metric; precision and recall are from Ultralytics' native "
+            "validator at its operating point (the supervision evaluator does not "
+            "expose P/R) and are reported for completeness. 100\\,m exceeds "
+            "120\\,m throughout. All detectors trained at 1280$\\times$1280.")
     write("T2_detectors.tex", wrap_table(
         "\n".join(body_lines),
         "Detector benchmark: six detectors $\\times$ five seeds.",
-        "tab:detectors", "lcccc", header, note))
+        "tab:detectors", "lcccccc", header, note))
+
+
+# --------------------------------------------------------------------------- #
+# ST1 -- model complexity / efficiency (Params, GFLOPs, FPS)
+# --------------------------------------------------------------------------- #
+def table_efficiency():
+    if not EFFICIENCY.exists():
+        logger.info("ST1: %s not present -- run scripts/eval_efficiency.py first",
+                    EFFICIENCY.name)
+        return
+    eff = list(csv.DictReader(EFFICIENCY.open(encoding="utf-8")))
+
+    # order rows to match T2 (by supervision mAP@.5:.95, descending)
+    rank = {}
+    if STAGE1.exists():
+        for r in csv.DictReader(STAGE1.open(encoding="utf-8")):
+            base = r["model_name"].replace(".pt", "").replace("-", "_")
+            rank[base] = float(r["overall_mAP50_95_mean"])
+    eff.sort(key=lambda r: rank.get(r["detector"], 0.0), reverse=True)
+
+    # best efficiency per column: fewest params, fewest GFLOPs, highest FPS
+    best_params = min(eff, key=lambda r: float(r["params_M"]))
+    best_gflops = min(eff, key=lambda r: float(r["gflops"]))
+    best_fps = max(eff, key=lambda r: float(r["fps"]))
+
+    body = []
+    for r in eff:
+        name = DETECTOR_NAME.get(r["detector"] + ".pt", r["detector"])
+        p = f(r["params_M"], 1); g = f(r["gflops"], 1); fp = f(r["fps"], 1)
+        if r is best_params:
+            p = bold(p)
+        if r is best_gflops:
+            g = bold(g)
+        if r is best_fps:
+            fp = bold(fp)
+        body.append(f"    {name} & {p} & {g} & {fp} \\\\")
+    header = "    Detector & Param\\,(M) & GFLOPs & FPS \\\\"
+    note = ("Model complexity and throughput. Parameter count and GFLOPs are "
+            "architecture constants computed at the 1280$\\times$1280 evaluation "
+            "resolution; FPS is single-image fp32 inference throughput on one "
+            "RTX\\,5090. Best per column in bold (fewest Param/GFLOPs, highest "
+            "FPS). Detectors ordered as in Table~\\ref{tab:detectors}. RT-DETR-L's "
+            "accuracy lead (Table~\\ref{tab:detectors}) comes at $\\sim$2$\\times$ "
+            "the parameters and $\\sim$3$\\times$ the latency of the leading YOLOs.")
+    write("ST1_efficiency.tex", wrap_table(
+        "\n".join(body),
+        "Detector complexity and inference efficiency.",
+        "tab:efficiency", "lccc", header, note))
 
 
 # --------------------------------------------------------------------------- #
@@ -531,6 +604,7 @@ def main() -> int:
     table_dataset()
     table_detectors()
     table_per_class()
+    table_efficiency()
     table_trackers()
     table_trajectory()
     table_gtfree()
