@@ -571,6 +571,311 @@ def fig_track_compare(clip, trackers=("botsort", "ocsort"),
     _save(fig, f"F7compare_{clip}")
 
 
+# --------------------------------------------------------------------------- #
+# SF1 -- per-detector Grad-CAM heatmap comparison
+#
+# Three random frames (one per random clip, fixed seed) are run through the
+# best-seed weights of all six detectors. For each we render a class-targeted
+# Grad-CAM overlay (where the detector's vehicle-class response concentrates)
+# above a detection-box overlay, columns = detectors -- mirroring the DDFM-style
+# qualitative comparison grid.
+# --------------------------------------------------------------------------- #
+RUNS_DIR = PROJECT_ROOT / "runs/stage1_detectors"
+# (key, display, best-seed run dir, loader kind) -- best seed by overall
+# mAP50-95 from results/stage1/all_runs.csv
+SF1_DETECTORS = [
+    ("yolov9m",  "YOLOv9-m",  "yolov9m_seed0",  "yolo"),
+    ("yolov10m", "YOLOv10-m", "yolov10m_seed2", "yolo"),
+    ("yolo11m",  "YOLO11-m",  "yolo11m_seed2",  "yolo"),
+    ("yolo12m",  "YOLO12-m",  "yolo12m_seed4",  "yolo"),
+    ("yolo26m",  "YOLO26-m",  "yolo26m_seed0",  "yolo"),
+    ("rtdetr_l", "RT-DETR-L", "rtdetr_l_seed0", "rtdetr"),
+]
+SF1_CLIPS = ["100_m_DJI_0001_1min", "100_m_DJI_0054_1min", "120_m_DJI_0006_1min",
+             "120_m_DJI_0047_1min", "120_m_DJI_0001_5min", "120_m_DJI_0041_5min"]
+SF1_SEED = 20260605  # fixed -> reproducible "random" frame choice
+SF1_IMGSZ = 1280
+SF1_CONF = 0.25
+SF1_GAMMA = 0.6      # <1 lifts mid-range CAM so structure reads over the blue base
+SF1_ALPHA = 0.5      # heatmap blend weight
+
+
+def _sf1_letterbox(rgb, size=SF1_IMGSZ):
+    """Aspect-preserving resize+pad to size x size (Ultralytics-style)."""
+    import cv2
+    h, w = rgb.shape[:2]
+    s = size / max(h, w)
+    nh, nw = round(h * s), round(w * s)
+    resized = cv2.resize(rgb, (nw, nh), interpolation=cv2.INTER_LINEAR)
+    top, left = (size - nh) // 2, (size - nw) // 2
+    padded = cv2.copyMakeBorder(resized, top, size - nh - top, left, size - nw - left,
+                                cv2.BORDER_CONSTANT, value=(114, 114, 114))
+    return padded, (top, left, nh, nw)
+
+
+def _sf1_gradcam(net, im_t, device):
+    """Class-targeted Grad-CAM over the head's 3 input feature maps.
+
+    Target = summed vehicle-class confidence above SF1_CONF. End2end heads
+    (v10/v26) are temporarily run in their standard differentiable path
+    (end2end=False) so the raw class logits carry gradients; RT-DETR returns a
+    decoded confidence column. Returns a size x size [0,1] map.
+    """
+    import torch
+    import torch.nn.functional as F
+    net.eval()
+    head = net.model[-1]
+    feats, handles = [], []
+
+    def pre(_m, inp):
+        feats.clear()
+        for f in inp[0]:
+            f.retain_grad()
+        feats.extend(inp[0])
+    handles.append(head.register_forward_pre_hook(pre))
+
+    end2end = getattr(head, "end2end", None)
+    if end2end:
+        head.end2end = False             # use the standard (differentiable) path
+    im_t = im_t.to(device).clone().requires_grad_(True)
+    try:
+        with torch.enable_grad():
+            out = net(im_t)
+    finally:
+        if end2end:
+            head.end2end = True
+        for h in handles:
+            h.remove()
+
+    o0 = out[0] if isinstance(out, (list, tuple)) else out
+    # decoded N x 6 (RT-DETR) vs raw (1, 4+nc, A) (all Detect heads)
+    conf = o0[..., 4] if o0.shape[-1] <= 8 else o0[:, 4:, :].amax(1)
+    mask = conf > SF1_CONF
+    target = conf[mask].sum() if mask.any() else conf.max()
+
+    net.zero_grad()
+    target.backward()
+
+    cams = []
+    for f in feats:
+        if f.grad is None:
+            continue
+        w = f.grad.mean(dim=(2, 3), keepdim=True)      # GAP gradients -> channel weights
+        c = F.relu((w * f).sum(1))                      # (1,H,W)
+        c = F.interpolate(c[None], size=(SF1_IMGSZ, SF1_IMGSZ),
+                          mode="bilinear", align_corners=False)[0, 0]
+        cams.append(c)
+    cam = torch.stack(cams).mean(0)
+    cam = cam - cam.min()
+    cam = cam / (cam.max() + 1e-8)
+    return cam.detach().cpu().numpy()
+
+
+def _gradcam_grid(scenes, stem, cam_fn=None, cam_label="Grad-CAM"):
+    """Render the SF CAM / detections comparison grid.
+
+    scenes: list of (row_label, bgr_frame). Columns = reference frame + the six
+    best-seed detectors; per scene a CAM-overlay row above a detections row.
+    cam_fn(net, im_t, device) -> [0,1] map; defaults to class-targeted Grad-CAM.
+    cam_label names the overlay row in the left column.
+    """
+    import cv2
+    import torch
+    from matplotlib.patches import Rectangle
+    from ultralytics import RTDETR, YOLO
+
+    if cam_fn is None:
+        cam_fn = _sf1_gradcam
+
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    n_det = len(SF1_DETECTORS)
+    n_scn = len(scenes)
+    overlays = {}   # (det_i, scn_i) -> RGB Grad-CAM overlay
+    boxes = {}      # (det_i, scn_i) -> list of (xyxy, cls)
+
+    # Two passes per detector, each on a freshly loaded model: the high-level
+    # predict() mutates the end2end head (nulls cv3), which would corrupt a
+    # subsequent Grad-CAM forward -- so the passes never share a model instance.
+    for det_i, (key, disp, run, kind) in enumerate(SF1_DETECTORS):
+        wts = str(RUNS_DIR / run / "weights/best.pt")
+        ctor = RTDETR if kind == "rtdetr" else YOLO
+        print(f"  [{disp}] {run}")
+
+        net = ctor(wts).model.to(device)                 # pass A: Grad-CAM
+        for scn_i, (_label, bgr) in enumerate(scenes):
+            rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
+            H, W = rgb.shape[:2]
+            lb, (top, left, nh, nw) = _sf1_letterbox(rgb)
+            im_t = torch.from_numpy(lb).permute(2, 0, 1).float()[None] / 255.0
+            cam = cam_fn(net, im_t, device)
+            cam = cam[top:top + nh, left:left + nw]       # strip padding
+            cam = cv2.resize(cam, (W, H), interpolation=cv2.INTER_LINEAR)
+            cam = np.power(cam, SF1_GAMMA)                 # lift mid-range
+            heat = cv2.cvtColor(cv2.applyColorMap((cam * 255).astype("uint8"),
+                                                  cv2.COLORMAP_JET), cv2.COLOR_BGR2RGB)
+            overlays[(det_i, scn_i)] = ((1 - SF1_ALPHA) * rgb
+                                        + SF1_ALPHA * heat).astype("uint8")
+        del net
+
+        model = ctor(wts)                                # pass B: detections
+        for scn_i, (_label, bgr) in enumerate(scenes):
+            res = model.predict(bgr, imgsz=SF1_IMGSZ, conf=SF1_CONF,
+                                device=device, verbose=False)[0]
+            boxes[(det_i, scn_i)] = list(zip(
+                res.boxes.xyxy.cpu().numpy(),
+                res.boxes.cls.cpu().numpy().astype(int)))
+        del model
+        if device == "cuda":
+            torch.cuda.empty_cache()
+
+    # rows: per scene a Grad-CAM row then a detections row; cols: frame + detectors
+    fig, axes = plt.subplots(2 * n_scn, n_det + 1,
+                             figsize=(2.05 * (n_det + 1), 2.05 * 2 * n_scn * 9 / 16))
+    for det_i, (key, disp, run, kind) in enumerate(SF1_DETECTORS):
+        for scn_i, (_label, bgr) in enumerate(scenes):
+            ax = axes[2 * scn_i, det_i + 1]
+            ax.imshow(overlays[(det_i, scn_i)])
+            ax.set_xticks([]); ax.set_yticks([])
+            if scn_i == 0:
+                ax.set_title(disp, fontsize=10)
+            axb = axes[2 * scn_i + 1, det_i + 1]
+            axb.imshow(cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB))
+            for (x1, y1, x2, y2), c in boxes[(det_i, scn_i)]:
+                axb.add_patch(Rectangle((x1, y1), x2 - x1, y2 - y1, fill=False,
+                                        edgecolor=CLS_COLOR.get(c, "#FFFFFF"), linewidth=0.5))
+            axb.set_xticks([]); axb.set_yticks([])
+
+    # leftmost reference column: original frame on both rows of each scene
+    for scn_i, (label, bgr) in enumerate(scenes):
+        rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
+        a0 = axes[2 * scn_i, 0]
+        a0.imshow(rgb); a0.set_xticks([]); a0.set_yticks([])
+        a0.set_ylabel(f"{label}\n{cam_label}", fontsize=8.5)
+        if scn_i == 0:
+            a0.set_title("Frame", fontsize=10)
+        a1 = axes[2 * scn_i + 1, 0]
+        a1.imshow(rgb); a1.set_xticks([]); a1.set_yticks([])
+        a1.set_ylabel("Detections", fontsize=8.5)
+
+    handles = [plt.Line2D([0], [0], color=CLS_COLOR[c], lw=2, label=CLS_NAME[c])
+               for c in (0, 1, 2)]
+    fig.legend(handles=handles, loc="lower center", ncol=3, frameon=False,
+               bbox_to_anchor=(0.5, -0.01), fontsize=9)
+    fig.tight_layout(rect=[0, 0.015, 1, 1])
+    _save(fig, stem)
+
+
+def _sf1_eigencam(net, im_t, device):
+    """Gradient-free EigenCAM over the head's 3 input feature maps.
+
+    For each scale the activations (C, HW) are projected onto their first
+    principal component; the sign is oriented so high activation energy reads
+    hot, min-max normalised, upsampled and averaged across scales. Returns a
+    size x size [0,1] map.  No class target -- this is the contrast to
+    _sf1_gradcam (same hooked layers, same aggregation).
+    """
+    import torch
+    import torch.nn.functional as F
+    net.eval()
+    head = net.model[-1]
+    feats, handles = [], []
+
+    def pre(_m, inp):
+        feats.clear()
+        feats.extend(inp[0])
+    handles.append(head.register_forward_pre_hook(pre))
+    with torch.no_grad():
+        net(im_t.to(device))
+    for h in handles:
+        h.remove()
+
+    cams = []
+    for f in feats:
+        a = f[0].detach().cpu().numpy()                 # (C, H, W)
+        C, H, W = a.shape
+        flat = a.reshape(C, -1).T                       # (HW, C)
+        flat = flat - flat.mean(axis=0, keepdims=True)
+        # first right-singular vector = first principal component
+        _u, _s, vt = np.linalg.svd(flat, full_matrices=False)
+        proj = (flat @ vt[0]).reshape(H, W)             # (H, W)
+        mag = np.linalg.norm(a.reshape(C, -1), axis=0)  # activation energy
+        if np.corrcoef(proj.reshape(-1), mag)[0, 1] < 0:
+            proj = -proj                                # orient: hot = energetic
+        c = torch.from_numpy(proj)[None, None]
+        c = F.interpolate(c, size=(SF1_IMGSZ, SF1_IMGSZ),
+                          mode="bilinear", align_corners=False)[0, 0]
+        c = c - c.min()
+        c = c / (c.max() + 1e-8)
+        cams.append(c)
+    cam = torch.stack(cams).mean(0)
+    cam = cam - cam.min()
+    cam = cam / (cam.max() + 1e-8)
+    return cam.numpy()
+
+
+def _sf1_scenes():
+    """SF1's three seeded-random frames (label, bgr) -- shared by every SF1 variant."""
+    import random
+
+    import cv2
+
+    rng = random.Random(SF1_SEED)
+    short = {"100_m_DJI_0001_1min": "Intersection\n100 m",
+             "100_m_DJI_0054_1min": "Dense int.\n100 m",
+             "120_m_DJI_0006_1min": "Roundabout\n120 m",
+             "120_m_DJI_0047_1min": "Suburban int.\n120 m",
+             "120_m_DJI_0001_5min": "Urban int.\n120 m",
+             "120_m_DJI_0041_5min": "Arterial int.\n120 m"}
+    scenes = []  # (label, bgr)
+    for clip in rng.sample(SF1_CLIPS, 3):                 # 3 distinct random clips
+        cap = cv2.VideoCapture(str(VIDEO_DIR / f"{clip}.mp4"))
+        n = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        frame = rng.randint(int(0.1 * n), int(0.9 * n))   # random in-range frame
+        cap.set(cv2.CAP_PROP_POS_FRAMES, frame)
+        ok, bgr = cap.read()
+        cap.release()
+        if not ok:
+            print(f"  !! could not read {clip} frame {frame}; skipping")
+            continue
+        scenes.append((short.get(clip, clip), bgr))
+        print(f"  scene: {clip} frame {frame}/{n}")
+    return scenes
+
+
+def fig_sf1():
+    _gradcam_grid(_sf1_scenes(), "SF1_detector_gradcam", _sf1_gradcam)
+
+
+def fig_sf1_eigen():
+    # identical frames to SF1, EigenCAM instead of Grad-CAM (qualitative pick)
+    _gradcam_grid(_sf1_scenes(), "SF1_detector_eigencam", _sf1_eigencam, "EigenCAM")
+
+
+# Hand-selected frames (all 120 m; altitude noted in the caption, not the figure).
+# Scene label drawn from the filename; ordered by the leading index.
+SF2_FRAME_DIR = Path(r"C:\Users\User\Desktop\selected frame")
+SF2_FRAMES = [
+    ("01suburban_morning_120m_DJI0044_t080.jpg", "Suburban\n(morning)"),
+    ("02curve_evening_120m_DJI0012_t010.jpg",    "Curve\n(evening)"),
+    ("03roundabout_eveningpeak_120m_DJI0004_t170.jpg", "Roundabout\n(eve. peak)"),
+    ("04urban_morningpeak_120m_DJI0001_t090.jpg", "Urban\n(morn. peak)"),
+]
+
+
+def fig_sf2():
+    import cv2
+
+    scenes = []  # (label, bgr)
+    for fname, label in SF2_FRAMES:
+        bgr = cv2.imread(str(SF2_FRAME_DIR / fname))
+        if bgr is None:
+            print(f"  !! could not read {fname}; skipping")
+            continue
+        scenes.append((label, bgr))
+        print(f"  scene: {fname}")
+    _gradcam_grid(scenes, "SF2_detector_gradcam")
+
+
 FIGURES = {
     "accel": fig_accel,
     "compare_0041_5min": lambda: fig_track_compare("120_m_DJI_0041_5min"),
@@ -589,6 +894,9 @@ FIGURES = {
     "calibration": fig_calibration,
     "scenes": fig_scenes,
     "detectors": fig_detectors,
+    "sf1": fig_sf1,
+    "sf1_eigen": fig_sf1_eigen,
+    "sf2": fig_sf2,
 }
 
 

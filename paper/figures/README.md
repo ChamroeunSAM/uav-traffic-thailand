@@ -13,6 +13,9 @@ Each writes a PNG (inspection) and a PDF (manuscript). Examples:
     python scripts/make_paper_figures.py compare_0041_5min  # F7compare
     python scripts/make_paper_figures.py calibration   # F8
     python scripts/make_paper_figures.py gtfree        # F9
+    python scripts/make_paper_figures.py sf1           # SF1 detector Grad-CAM (random frames)
+    python scripts/make_paper_figures.py sf1_eigen     # SF1 EigenCAM variant (same frames)
+    python scripts/make_paper_figures.py sf2           # SF2 detector Grad-CAM (selected frames)
 
 F7 overlays, one per clip: `f7_0001_1min`, `f7_0054_1min`, `f7_0006_1min`,
 `f7_0047_1min` (GT), `f7_0001_5min`, `f7_0041_5min` (BoT-SORT).
@@ -31,6 +34,9 @@ F7compare: `compare_0001_5min`, `compare_0041_5min`.
 | `F7compare_<clip>`              | Clean vs noisy tracks on frame; ID-error jumps in red             | 2 five-min clips (BoT-SORT vs OC-SORT) | ready |
 | `F8_calibration_<clip>`         | GCP quad + reprojected 10 m grid on frame                         | frame + GCP + homography       | ready |
 | `F9_gtfree_ranking`             | GT-free ranking, 2×2 bars (hatch per panel)                       | 2 new 120 m clips              | ready |
+| `SF1_detector_gradcam`          | Class-targeted Grad-CAM + detections, 6 detectors × 3 random scenes | best-seed weights + 3 seeded-random frames | ready |
+| `SF1_detector_eigencam`         | EigenCAM (gradient-free, class-agnostic) variant of SF1, same frames | best-seed weights + SF1 frames | ready (pick vs gradcam) |
+| `SF2_detector_gradcam`          | Class-targeted Grad-CAM + detections, 6 detectors × 4 selected scenes | best-seed weights + 4 hand-picked 120 m frames | ready |
 
 Notes:
 - F6a/F6b are matched panels for manual side-by-side paneling.
