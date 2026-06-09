@@ -937,8 +937,7 @@ def fig_ablation():
                 color=REGIME_COLOR[regime], hatch=hatch,
                 edgecolor="black", linewidth=0.6,
                 label=lab.replace("\n", " · "))
-    axA.set_xticks(x); axA.set_xticklabels(
-        ["LV\n(large)", "MV\n(car)", "SV\n(motorcycle)"])
+    axA.set_xticks(x); axA.set_xticklabels(["LV", "MV", "SV"])
     axA.set_ylabel("Localization recall (IoU≥0.5)")
     axA.set_ylim(0, 1.02)
     axA.set_title("(a) Detection: vehicles the detector sees")
@@ -971,6 +970,90 @@ def fig_ablation():
     _save(fig, "F10_finetune_vs_pretrained")
 
 
+# F10b -- line-graph version: metrics vs the ordered domain gradient.
+# Regime is treated as an ordered x-axis (COCO -> VisDrone -> fine-tuned); each
+# regime point is the mean across the architectures available at that regime
+# (COCO/fine-tuned = mean of RT-DETR-L + YOLO26-m; VisDrone = the single
+# YOLOv8x). Individual architecture points are overlaid faintly to show spread.
+ABL_REGIMES = [
+    ("COCO\n(general)", "COCO", [("rtdetr_l", "pretrained"), ("yolo26m", "pretrained")]),
+    ("VisDrone\n(aerial)", "aerial", [("visdrone8x", "visdrone")]),
+    ("Fine-tuned\n(target)", "fine-tuned", [("rtdetr_l", "finetuned"), ("yolo26m", "finetuned")]),
+]
+CLASS_LINE = {"LV": ("#D55E00", "o", "-"), "MV": ("#0072B2", "s", "-"),
+              "SV": ("#009E73", "^", "-")}
+
+
+def _abl_recall_micro():
+    """Per (detector, weights) micro recall + raw GT counts, per class."""
+    hit, tot = {}, {}
+    for r in csv.DictReader((ABLATION_DIR / "recall_by_class.csv").open(encoding="utf-8")):
+        k = (r["detector"], r["weights"])
+        hit.setdefault(k, {}); tot.setdefault(k, {})
+        for c in ABL_CLASSES:
+            n = float(r[f"n_gt_{c}"]); v = r[f"recall_loc_{c}"]
+            tot[k][c] = tot[k].get(c, 0.0) + n
+            if v not in ("", "nan") and n:
+                hit[k][c] = hit[k].get(c, 0.0) + float(v) * n
+    return hit, tot
+
+
+def fig_ablation_line():
+    hit, tot = _abl_recall_micro()
+    compl = _abl_completeness()
+    cell_of = {(s[0], s[1]): s[2] for s in ABL_SERIES}
+    x = np.arange(len(ABL_REGIMES))
+
+    fig, (axA, axB) = plt.subplots(1, 2, figsize=(10.5, 4.5))
+
+    # --- Panel A: per-class localization recall vs regime ---
+    for c in ABL_CLASSES:
+        col, mk, ls = CLASS_LINE[c]
+        ys = []
+        for _, _, members in ABL_REGIMES:
+            h = sum(hit[m].get(c, 0.0) for m in members if m in hit)
+            t = sum(tot[m].get(c, 0.0) for m in members if m in tot)
+            ys.append(h / t if t else float("nan"))
+            # faint per-architecture markers
+            for m in members:
+                if m in tot and tot[m].get(c):
+                    axA.plot(len(ys) - 1, hit[m].get(c, 0.0) / tot[m][c], mk,
+                             color=col, alpha=0.28, ms=5, zorder=1)
+        axA.plot(x, ys, ls, color=col, marker=mk, ms=8, lw=2.0,
+                 label=f"{c}", zorder=3)
+    axA.set_xticks(x); axA.set_xticklabels([r[0] for r in ABL_REGIMES])
+    axA.set_ylabel("Localization recall (IoU≥0.5)")
+    axA.set_ylim(0.3, 1.03)
+    axA.set_title("(a) Detection: vehicles the detector sees")
+    axA.legend(title="Vehicle class", loc="lower right", fontsize=9.5, frameon=True)
+    axA.grid(True, alpha=0.25)
+
+    # --- Panel B: trajectory completeness vs regime ---
+    ys = []
+    for _, _, members in ABL_REGIMES:
+        cells = [cell_of[m] for m in members if m in cell_of and cell_of[m] in compl]
+        vals = [compl[cl] for cl in cells]
+        ys.append(float(np.mean(vals)) if vals else float("nan"))
+        for cl in cells:
+            axB.plot(len(ys) - 1, compl[cl], "o", color="#444444", alpha=0.3,
+                     ms=5, zorder=1)
+    axB.plot(x, ys, "-", color="#7B3294", marker="D", ms=9, lw=2.4, zorder=3)
+    for xi, v in zip(x, ys):
+        if not np.isnan(v):
+            axB.annotate(f"{v:.2f}", (xi, v), textcoords="offset points",
+                         xytext=(0, 9), ha="center", fontsize=10)
+    axB.set_xticks(x); axB.set_xticklabels([r[0] for r in ABL_REGIMES])
+    axB.set_ylabel("Trajectory completeness")
+    axB.set_ylim(0.2, 1.0)
+    axB.set_title("(b) Trajectory: fraction of GT recovered")
+    axB.grid(True, alpha=0.25)
+
+    fig.suptitle("Detector domain gradient (COCO → VisDrone → target fine-tuning): "
+                 "quality rises monotonically toward the target domain", fontsize=11.5)
+    fig.tight_layout(rect=(0, 0, 1, 0.95))
+    _save(fig, "F10b_finetune_vs_pretrained_line")
+
+
 FIGURES = {
     "accel": fig_accel,
     "compare_0041_5min": lambda: fig_track_compare("120_m_DJI_0041_5min"),
@@ -990,6 +1073,7 @@ FIGURES = {
     "scenes": fig_scenes,
     "detectors": fig_detectors,
     "ablation": fig_ablation,
+    "ablation_line": fig_ablation_line,
     "sf1": fig_sf1,
     "sf1_eigen": fig_sf1_eigen,
     "sf2": fig_sf2,
