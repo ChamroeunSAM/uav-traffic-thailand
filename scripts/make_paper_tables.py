@@ -45,6 +45,7 @@ EFFICIENCY = PROJECT_ROOT / "results/stage1/efficiency.csv"  # P/R source for T2
 STAGE3 = PROJECT_ROOT / "results/stage3/tracker_metrics.csv"
 STAGE4 = PROJECT_ROOT / "results/stage4/trajectory_metrics.csv"
 STAGE4_GTFREE = PROJECT_ROOT / "results/stage4/trajectory_metrics_gtfree.csv"
+ABLATION_DIR = PROJECT_ROOT / "results/stage4/ablation_pretrained"
 
 logger = logging.getLogger(__name__)
 
@@ -599,6 +600,144 @@ def table_per_class():
         "tab:perclass", "lcccccc", header, note))
 
 
+# --------------------------------------------------------------------------- #
+# T8 -- detector domain gradient (COCO -> VisDrone -> target) vs trajectory quality
+# --------------------------------------------------------------------------- #
+# (det_key, wt_key, cell_key, detector_label, regime_label, group)
+# group ties the two rows that form a pairwise (pretrained vs fine-tuned)
+# comparison; the VisDrone row is its own group (single, off-the-shelf, larger
+# architecture -> not bolded against the others).
+ABL_TABLE_ROWS = [
+    ("rtdetr_l", "pretrained", "rtdetr_l_pretrained", "RT-DETR-L", "COCO-pretrained", "rtdetr_l"),
+    ("rtdetr_l", "finetuned", "rtdetr_l_finetuned", "", "Fine-tuned", "rtdetr_l"),
+    ("yolo26m", "pretrained", "yolo26m_pretrained", "YOLO26-m", "COCO-pretrained", "yolo26m"),
+    ("yolo26m", "finetuned", "yolo26m_finetuned", "", "Fine-tuned", "yolo26m"),
+    ("visdrone8x", "visdrone", "visdrone8x_aerial",
+     "VisDrone-YOLOv8x", "aerial, off-the-shelf", "visdrone8x"),
+]
+
+
+def _ablation_recall():
+    """Micro-averaged (GT-count-weighted) per-class recall per (detector, weights)."""
+    path = ABLATION_DIR / "recall_by_class.csv"
+    hit, tot = {}, {}
+    for r in csv.DictReader(path.open(encoding="utf-8")):
+        k = (r["detector"], r["weights"])
+        hit.setdefault(k, {}); tot.setdefault(k, {})
+        for c in CLASS_NAMES:
+            n = float(r[f"n_gt_{c}"])
+            tot[k][c] = tot[k].get(c, 0.0) + n
+            for kind in ("loc", "cls"):
+                v = r[f"recall_{kind}_{c}"]
+                if v not in ("", "nan") and n:
+                    hit[k][f"{kind}_{c}"] = hit[k].get(f"{kind}_{c}", 0.0) + float(v) * n
+    out = {}
+    for k in hit:
+        out[k] = {}
+        for c in CLASS_NAMES:
+            t = tot[k].get(c, 0.0)
+            for kind in ("loc", "cls"):
+                out[k][f"{kind}_{c}"] = hit[k].get(f"{kind}_{c}", 0.0) / t if t else float("nan")
+    return out
+
+
+def _ablation_traj_by_cell():
+    """ALL-clip smoothed ByteTrack trajectory metrics per cell key."""
+    out = {}
+    for p in ABLATION_DIR.glob("trajectory_*.csv"):
+        cell = p.stem[len("trajectory_"):]
+        for r in csv.DictReader(p.open(encoding="utf-8")):
+            if (r["clip"] == "ALL" and r["source"] == "bytetrack"
+                    and r["variant"] == "smoothed"):
+                out[cell] = r
+    return out
+
+
+def table_ablation():
+    rc = ABLATION_DIR / "recall_by_class.csv"
+    if not rc.exists():
+        logger.warning("T8: %s missing -- skipping", rc)
+        return
+    rec = _ablation_recall()
+    traj = _ablation_traj_by_cell()
+
+    # metric key -> (value extractor, formatter, lower_is_better)
+    metrics = {
+        "loc_LV": (lambda d, w, c: rec[(d, w)]["loc_LV"], lambda v: f(v, 2), False),
+        "loc_MV": (lambda d, w, c: rec[(d, w)]["loc_MV"], lambda v: f(v, 2), False),
+        "loc_SV": (lambda d, w, c: rec[(d, w)]["loc_SV"], lambda v: f(v, 2), False),
+        "cls_MV": (lambda d, w, c: rec[(d, w)]["cls_MV"], lambda v: f(v, 2), False),
+        "cls_SV": (lambda d, w, c: rec[(d, w)]["cls_SV"], lambda v: f(v, 2), False),
+        "compl": (lambda d, w, c: float(traj[c]["a1_completeness_mean"]), lambda v: f(v, 2), False),
+        "jerk": (lambda d, w, c: float(traj[c]["a3_jerk_mean_mps3"]), lambda v: f(v, 1), True),
+    }
+    order = ["loc_LV", "loc_MV", "loc_SV", "cls_MV", "cls_SV", "compl", "jerk"]
+
+    # available rows + raw values
+    rows = [r for r in ABL_TABLE_ROWS if (r[0], r[1]) in rec and r[2] in traj]
+    raw = {}
+    for det, wt, cell, *_ in rows:
+        raw[(det, wt)] = {m: metrics[m][0](det, wt, cell) for m in order}
+
+    # per group, per metric: which (det,wt) is best -> bold (only groups w/ >=2 rows)
+    from collections import defaultdict
+    groups = defaultdict(list)
+    for det, wt, cell, dlab, rlab, grp in rows:
+        groups[grp].append((det, wt))
+    bold_set = set()
+    for grp, members in groups.items():
+        if len(members) < 2:
+            continue
+        for m in order:
+            lower = metrics[m][2]
+            vals = {mem: raw[mem][m] for mem in members
+                    if not (isinstance(raw[mem][m], float) and np.isnan(raw[mem][m]))}
+            if vals:
+                bold_set.add(((min if lower else max)(vals, key=vals.get), m))
+
+    blocks, cur_grp, cur = [], None, []
+    for det, wt, cell, dlab, rlab, grp in rows:
+        if grp != cur_grp and cur:
+            blocks.append("\n".join(cur)); cur = []
+        cur_grp = grp
+        cells = []
+        for m in order:
+            s = metrics[m][1](raw[(det, wt)][m])
+            if ((det, wt), m) in bold_set:
+                s = bold(s)
+            cells.append(s)
+        cur.append(f"    {dlab} & {rlab} & " + " & ".join(cells) + " \\\\")
+    if cur:
+        blocks.append("\n".join(cur))
+    body = "\n    \\addlinespace\n".join(blocks)
+
+    header = ("    Detector & Weights & \\multicolumn{3}{c}{Loc.\\ recall} & "
+              "\\multicolumn{2}{c}{Cls.\\ recall} & Compl. & Jerk \\\\\n"
+              "    & & LV & MV & SV & MV & SV & & (m/s$^3$) \\\\")
+    note = ("Detector domain gradient: COCO-pretrained (general) $\\to$ "
+            "VisDrone-pretrained (aerial, but different geography/altitude and a "
+            "larger YOLOv8x backbone) $\\to$ fine-tuned on the target data. Each "
+            "cell averages the four tracker-GT clips; recall is GT-count-weighted, "
+            "trajectory metrics are the smoothed ByteTrack all-clip means. "
+            "\\emph{Loc.\\ recall}: a GT vehicle is found if any predicted box "
+            "overlaps it at IoU\\,$\\geq$\\,0.5 (did the detector see the vehicle). "
+            "\\emph{Cls.\\ recall} additionally requires the predicted class to be "
+            "correct. \\emph{Compl.}: mean fraction of each GT trajectory recovered "
+            "(Axis 1). Fragments/GT and ID switches are omitted: off-the-shelf "
+            "tracks are too short and sparse (completeness 0.3--0.8) to accumulate "
+            "either, so their lower counts reflect missing trajectory, not cleaner "
+            "identity. Bold = better of the pretrained/fine-tuned pair per detector "
+            "and metric (the VisDrone row uses a different architecture and is not "
+            "bolded). VisDrone lands between COCO and fine-tuned on every axis, yet "
+            "still trails the fine-tuned medium models on completeness despite its "
+            "larger backbone --- target-domain fine-tuning, not merely aerial "
+            "pretraining, is what closes the gap.")
+    write("T8_finetune_vs_pretrained.tex", wrap_table(
+        body, "Detector domain gap (COCO $\\to$ VisDrone $\\to$ target "
+        "fine-tuning) and its propagation into trajectory quality (ByteTrack, "
+        "four clips).", "tab:ablation", "llccccccc", header, note))
+
+
 def main() -> int:
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     table_dataset()
@@ -609,6 +748,7 @@ def main() -> int:
     table_trajectory()
     table_gtfree()
     table_calibration()
+    table_ablation()
     logger.info("done -> %s", OUT_DIR)
     return 0
 

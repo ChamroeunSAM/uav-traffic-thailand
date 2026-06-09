@@ -1,0 +1,21 @@
+\begin{table}[ht]
+  \centering
+  \caption{Detector domain gap (COCO $\to$ VisDrone $\to$ target fine-tuning) and its propagation into trajectory quality (ByteTrack, four clips).}
+  \label{tab:ablation}
+  \begin{tabular}{llccccccc}
+    \toprule
+    Detector & Weights & \multicolumn{3}{c}{Loc.\ recall} & \multicolumn{2}{c}{Cls.\ recall} & Compl. & Jerk \\
+    & & LV & MV & SV & MV & SV & & (m/s$^3$) \\
+    \midrule
+    RT-DETR-L & COCO-pretrained & 0.56 & 0.86 & 0.64 & 0.25 & 0.45 & 0.40 & 43.6 \\
+     & Fine-tuned & \textbf{1.00} & \textbf{1.00} & \textbf{1.00} & \textbf{0.98} & \textbf{0.99} & \textbf{0.95} & \textbf{22.0} \\
+    \addlinespace
+    YOLO26-m & COCO-pretrained & 0.39 & 0.92 & 0.39 & 0.83 & 0.13 & 0.29 & 33.0 \\
+     & Fine-tuned & \textbf{0.99} & \textbf{0.97} & \textbf{0.97} & \textbf{0.97} & \textbf{0.96} & \textbf{0.87} & \textbf{22.1} \\
+    \addlinespace
+    VisDrone-YOLOv8x & aerial, off-the-shelf & 0.69 & 0.96 & 0.85 & 0.77 & 0.85 & 0.78 & 30.7 \\
+    \bottomrule
+  \end{tabular}
+  \par\smallskip
+  \footnotesize Detector domain gradient: COCO-pretrained (general) $\to$ VisDrone-pretrained (aerial, but different geography/altitude and a larger YOLOv8x backbone) $\to$ fine-tuned on the target data. Each cell averages the four tracker-GT clips; recall is GT-count-weighted, trajectory metrics are the smoothed ByteTrack all-clip means. \emph{Loc.\ recall}: a GT vehicle is found if any predicted box overlaps it at IoU\,$\geq$\,0.5 (did the detector see the vehicle). \emph{Cls.\ recall} additionally requires the predicted class to be correct. \emph{Compl.}: mean fraction of each GT trajectory recovered (Axis 1). Fragments/GT and ID switches are omitted: off-the-shelf tracks are too short and sparse (completeness 0.3--0.8) to accumulate either, so their lower counts reflect missing trajectory, not cleaner identity. Bold = better of the pretrained/fine-tuned pair per detector and metric (the VisDrone row uses a different architecture and is not bolded). VisDrone lands between COCO and fine-tuned on every axis, yet still trails the fine-tuned medium models on completeness despite its larger backbone --- target-domain fine-tuning, not merely aerial pretraining, is what closes the gap.
+\end{table}

@@ -876,6 +876,101 @@ def fig_sf2():
     _gradcam_grid(scenes, "SF2_detector_gradcam")
 
 
+# --------------------------------------------------------------------------- #
+# F10 -- detector domain gradient (COCO -> VisDrone -> target) vs trajectory quality
+# --------------------------------------------------------------------------- #
+ABLATION_DIR = PROJECT_ROOT / "results/stage4/ablation_pretrained"
+ABL_CLASSES = ["LV", "MV", "SV"]
+REGIME_COLOR = {"COCO": "#D55E00", "aerial": "#009E73", "fine-tuned": "#0072B2"}
+# ordered left->right as the domain gradient general -> aerial -> target.
+# (det_key, wt_key, cell_key, short_label, regime, hatch)
+ABL_SERIES = [
+    ("rtdetr_l", "pretrained", "rtdetr_l_pretrained", "RT-DETR-L\nCOCO", "COCO", None),
+    ("yolo26m", "pretrained", "yolo26m_pretrained", "YOLO26-m\nCOCO", "COCO", "//"),
+    ("visdrone8x", "visdrone", "visdrone8x_aerial", "YOLOv8x\nVisDrone", "aerial", None),
+    ("rtdetr_l", "finetuned", "rtdetr_l_finetuned", "RT-DETR-L\nfine-tuned", "fine-tuned", None),
+    ("yolo26m", "finetuned", "yolo26m_finetuned", "YOLO26-m\nfine-tuned", "fine-tuned", "//"),
+]
+
+
+def _abl_recall():
+    """GT-count-weighted localization recall per (detector, weights, class)."""
+    hit, tot = {}, {}
+    for r in csv.DictReader((ABLATION_DIR / "recall_by_class.csv").open(encoding="utf-8")):
+        k = (r["detector"], r["weights"])
+        hit.setdefault(k, {}); tot.setdefault(k, {})
+        for c in ABL_CLASSES:
+            n = float(r[f"n_gt_{c}"]); v = r[f"recall_loc_{c}"]
+            tot[k][c] = tot[k].get(c, 0.0) + n
+            if v not in ("", "nan") and n:
+                hit[k][c] = hit[k].get(c, 0.0) + float(v) * n
+    return {k: {c: (hit[k].get(c, 0.0) / tot[k][c] if tot[k].get(c) else float("nan"))
+                for c in ABL_CLASSES} for k in hit}
+
+
+def _abl_completeness():
+    """ALL-clip smoothed ByteTrack completeness per cell key."""
+    out = {}
+    for p in ABLATION_DIR.glob("trajectory_*.csv"):
+        cell = p.stem[len("trajectory_"):]
+        for r in csv.DictReader(p.open(encoding="utf-8")):
+            if (r["clip"] == "ALL" and r["source"] == "bytetrack"
+                    and r["variant"] == "smoothed"):
+                out[cell] = float(r["a1_completeness_mean"])
+    return out
+
+
+def fig_ablation():
+    rec = _abl_recall()
+    compl = _abl_completeness()
+    series = [s for s in ABL_SERIES if (s[0], s[1]) in rec and s[2] in compl]
+    n = len(series)
+    fig, (axA, axB) = plt.subplots(1, 2, figsize=(11.5, 4.9),
+                                   gridspec_kw={"width_ratios": [1.5, 1.0]})
+
+    # --- Panel A: per-class localization recall (gradient = 5 bars per class) ---
+    width = 0.84 / n
+    x = np.arange(len(ABL_CLASSES))
+    for i, (det, wt, cell, lab, regime, hatch) in enumerate(series):
+        vals = [rec[(det, wt)][c] for c in ABL_CLASSES]
+        axA.bar(x + (i - (n - 1) / 2) * width, vals, width,
+                color=REGIME_COLOR[regime], hatch=hatch,
+                edgecolor="black", linewidth=0.6,
+                label=lab.replace("\n", " · "))
+    axA.set_xticks(x); axA.set_xticklabels(
+        ["LV\n(large)", "MV\n(car)", "SV\n(motorcycle)"])
+    axA.set_ylabel("Localization recall (IoU≥0.5)")
+    axA.set_ylim(0, 1.02)
+    axA.set_title("(a) Detection: vehicles the detector sees")
+    axA.axhline(1.0, color="0.7", lw=0.8, ls=":")
+    axA.grid(True, axis="y", alpha=0.25)
+
+    # --- Panel B: trajectory completeness (gradient = 5 bars) ---
+    xb = np.arange(n)
+    for i, (det, wt, cell, lab, regime, hatch) in enumerate(series):
+        v = compl[cell]
+        axB.bar(i, v, 0.72, color=REGIME_COLOR[regime], hatch=hatch,
+                edgecolor="black", linewidth=0.6)
+        axB.text(i, v + 0.015, f"{v:.2f}", ha="center", va="bottom", fontsize=9.5)
+    axB.set_xticks(xb)
+    axB.set_xticklabels([s[3] for s in series], fontsize=8.2)
+    axB.set_ylabel("Trajectory completeness")
+    axB.set_ylim(0, 1.08)
+    axB.set_title("(b) Trajectory: fraction of GT recovered")
+    axB.grid(True, axis="y", alpha=0.25)
+
+    # shared legend along the bottom (regime gradient)
+    handles, labels = axA.get_legend_handles_labels()
+    fig.legend(handles, labels, loc="lower center", ncol=n, fontsize=8.4,
+               frameon=True, bbox_to_anchor=(0.5, -0.01), columnspacing=1.2,
+               handlelength=1.5)
+    fig.suptitle("Detector domain gradient (COCO → VisDrone → target fine-tuning): "
+                 "target fine-tuning, not just aerial pretraining, recovers "
+                 "trajectories", fontsize=12)
+    fig.tight_layout(rect=(0, 0.07, 1, 0.95))
+    _save(fig, "F10_finetune_vs_pretrained")
+
+
 FIGURES = {
     "accel": fig_accel,
     "compare_0041_5min": lambda: fig_track_compare("120_m_DJI_0041_5min"),
@@ -894,6 +989,7 @@ FIGURES = {
     "calibration": fig_calibration,
     "scenes": fig_scenes,
     "detectors": fig_detectors,
+    "ablation": fig_ablation,
     "sf1": fig_sf1,
     "sf1_eigen": fig_sf1_eigen,
     "sf2": fig_sf2,
