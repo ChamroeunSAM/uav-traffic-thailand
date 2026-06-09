@@ -470,7 +470,7 @@ def fig_detectors():
     LBL = {
         "rtdetr_l": (10, 2, "left"), "yolo12m": (0, 11, "center"),
         "yolov9m": (0, -16, "center"), "yolo26m": (6, 8, "left"),
-        "yolo11m": (0, -16, "center"), "yolov10m": (6, 8, "left"),
+        "yolo11m": (0, -16, "center"), "yolov10m": (-6, 8, "right"),
     }
     for d, fps, a in pts:
         is_rt = d == "rtdetr_l"
@@ -482,7 +482,7 @@ def fig_detectors():
         ax.annotate(DET_DISPLAY[d], (fps, a), textcoords="offset points",
                     xytext=(dx, dy), ha=ha, fontsize=9.5)
     ax.set_xlim(40, 180)
-    ax.set_ylim(0.75, 0.9)
+    ax.set_ylim(0.78, 0.9)
     ax.set_xlabel("Inference speed")
     ax.set_ylabel("mAP50:95 (overall)")
     ax.legend(loc="lower left", fontsize=9, frameon=True)
