@@ -518,11 +518,13 @@ def fig_spaghetti_overlay(clip="120_m_DJI_0006_1min", source="gt"):
     _save(fig, f"F7_trajectories_{clip}_{source}")
 
 
-def fig_track_compare(clip, trackers=("botsort", "ocsort"),
-                      labels=("BoT-SORT (clean)", "OC-SORT (noisy)")):
-    """Two stacked panels: each tracker's linked tracks drawn as connected
-    pixel-space polylines over a frame. Identity errors (impossible jumps) show
-    as long lines crossing the scene -- the noisy tracker has many more."""
+def fig_track_compare(clip,
+                      trackers=("bytetrack", "botsort", "ocsort", "deepocsort"),
+                      labels=("ByteTrack", "BoT-SORT", "OC-SORT", "Deep OC-SORT")):
+    """One stacked panel per tracker: each tracker's linked tracks drawn as
+    connected pixel-space polylines over a frame. Identity errors (impossible
+    jumps) show as long lines crossing the scene -- the noisier association
+    trackers have many more."""
     import json
     img = plt.imread(FRAME_DIR / f"{clip}.png")
     Hh, Ww = img.shape[:2]
@@ -535,7 +537,9 @@ def fig_track_compare(clip, trackers=("botsort", "ocsort"),
         proj = (H @ hom.T).T
         return proj[:, :2] / proj[:, 2:3]
 
-    fig, axes = plt.subplots(2, 1, figsize=(7.6, 2 * 7.6 * Hh / Ww + 0.3))
+    n = len(trackers)
+    fig, axes = plt.subplots(n, 1, figsize=(7.6, n * 7.6 * Hh / Ww + 0.3))
+    axes = np.atleast_1d(axes)
     for ax, trk, lab in zip(axes, trackers, labels):
         ax.imshow(img)
         tracks: dict[int, list] = {}
