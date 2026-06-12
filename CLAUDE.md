@@ -23,7 +23,31 @@ to Option B. Stage 4 is complete — all four phases (A–D) done; the
 trajectory-quality framework is run and the D4 hypothesis tested.** The
 Paper 1 methodology arc is finished; what remains is paper-writing.
 
-> **Next session starts here (2026-06-04):** **All five stages COMPLETE;
+> **Next session starts here (2026-06-12):** Two parallel threads.
+> **(1) Paper 1 — paper-assembly, unchanged:** figures/tables done
+> through F10/ST6 + F7compare (4-tracker) + F1 PowerPoint brief; what
+> remains is author writing + methodology.docx sync (see the 2026-06-04
+> block below).
+> **(2) Paper 1.5 — Nadir-YOLO custom detector (decision_log D6,
+> docs/design_custom_yolo.md + docs/litscan_custom_yolo.md):** a
+> SEPARATE ESWA-tier manuscript; Stage 1 / Paper 1 are never modified.
+> Phase 0 COMPLETE (custom-YAML path in `UltralyticsWrapper` +
+> `pretrained` partial transfer; `src/data/gsd.py` known-GSD lookup;
+> VisDrone-DET downloaded/converted under `data/visdrone/`, CC BY-NC-SA
+> academic; smoke trains pass on both datasets). Phase 1 IN PROGRESS —
+> pilot log in design doc §8b: GDP-A (P2-P4) CUT (LV canary: trailers
+> 16-18 m = 200 px at 100 m need P5); GDP-B (P2 added, pyramid kept)
+> trails baseline uniformly at 30 ep — initialization-confounded, NOT
+> yet cut. Memory finding: P2 variants spike past 32 GB → all P2 configs
+> run batch=3 + `cuda_mem_fraction: 0.9` (wrapper fail-fast guard).
+> ★ NEXT ACTION: relaunch the terminated 100-ep deconfounding pair
+> (exact commands in design doc §8b) — the GDP keep/cut gate (~3 h GPU);
+> then build the MSP metric-prior prototype (design doc §5.1, mechanism
+> (b) metric-regression first; if (b) is chosen, trigger the YOLOv10-s
+> base pilot per §4). Baseline-s 30-ep reference: mAP50-95 all 0.816 /
+> LV 0.893 / MV 0.874 / SV 0.681 (val).
+
+> **(2026-06-04):** **All five stages COMPLETE;
 > the project is in the paper-assembly phase.** Beyond Stages 1–4, this
 > session added: (1) a **GT-free generalisation test** — the Axis-3
 > framework + self-consistency proxies scored two *new, unlabelled* 5-min
@@ -650,7 +674,7 @@ done too — see the Phase C+D entry above.)
 
 ## 11. Document Maintenance
 
-Last refreshed: **2026-06-04**
+Last refreshed: **2026-06-12**
 
 If today is more than one month past that date, sections 2 (Current
 Status) and 10 (Recent Activity) may be stale. Other sections are more

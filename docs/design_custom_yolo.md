@@ -212,8 +212,13 @@ Paper 1 continues in parallel and submits first.
   fine; strict-IoU localization is the gap) and P2 may add no usable
   information at 17-22 px object scale — if the 100-ep pair confirms,
   GDP is cut entirely and MSP becomes the sole architectural centerpiece.
-- **2026-06-12 — deconfounding pair launched: baseline vs GDP-B at the
-  full 100-ep protocol (seed 0, patience 20).** This is the GDP keep/cut
+- **2026-06-12 — deconfounding pair (baseline vs GDP-B, full 100-ep
+  protocol, seed 0, patience 20) launched then TERMINATED mid-run at the
+  author's request (session break). ★ RELAUNCH IS THE NEXT ACTION:**
+  `python scripts/01_train_detector.py --config configs/detectors/nadir_yolo_s.yaml --name nadir_pilot_base_100ep`
+  then the same with `nadir_yolo_s_gdp_b.yaml` / `nadir_pilot_gdp_b_100ep`
+  (~3 h total; a partial `runs/nadir_yolo/nadir_pilot_base_100ep` dir may
+  exist — safe to overwrite, exist_ok is set). This is the GDP keep/cut
   gate. Speed note for the eventual efficiency table: trained GDP-B
   inference 2.1 ms / postprocess 1.3 ms per image at 1280 (batch-1
   val) — P2's NMS cost is negligible after training.
