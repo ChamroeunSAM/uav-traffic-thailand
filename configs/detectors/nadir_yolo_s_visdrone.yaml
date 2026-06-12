@@ -1,0 +1,21 @@
+# Nadir-YOLO-s on VisDrone-DET (decision_log D6; design doc §6.1 — the
+# public-benchmark leg). Same architecture scaffold as nadir_yolo_s.yaml;
+# nc is overridden to 10 at train time by the VisDrone data yaml. The GSD
+# prior runs in degraded mode here (no altitude metadata) — by design.
+# imgsz=1280 matches the Thai-benchmark protocol; revisit in Phase 1 if
+# VisDrone comparisons against published 640px baselines need a 640 variant.
+detector_class: ultralytics
+model_name: configs/detectors/arch/nadir_yolo11s.yaml
+pretrained: yolo11s.pt
+data_yaml: configs/data/visdrone.yaml
+epochs: 100
+imgsz: 1280
+batch: 8
+patience: 20
+cos_lr: true
+seed: 0
+workers: 4
+device: 0
+project: runs/nadir_yolo
+name: nadir_yolo_s_visdrone_seed{seed}
+notes: "Nadir-YOLO on VisDrone-DET — public small-object benchmark leg."
