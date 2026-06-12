@@ -202,10 +202,21 @@ Paper 1 continues in parallel and submits first.
   (silent WDDM spillover, erratic ~6x slowdowns). Fix: `cuda_mem_fraction:
   0.9` wrapper guard (fail fast) + batch 3 (15.4 GB steady, stable
   throughput). All P2-bearing variants train at batch 3.
-- **2026-06-12 — GDP-B launched (stock P3-P5 + added P2; 9.58M params,
-  115.8 GFLOPs @1280; 297/593 transfer).** Isolates the P2 question with
-  full backbone transfer; capacity slimming deferred to a separate
-  variant with trailer-corrected size bounds (slim-not-drop P5).
+- **2026-06-12 — GDP-B (stock P3-P5 + added P2; 9.58M params, 115.8
+  GFLOPs @1280; 297/593 transfer), 30 ep:** all 0.788 / LV 0.841 /
+  MV 0.859 / SV 0.663 — below baseline on every class, but *uniformly*
+  (~0.02-0.05), the signature of the from-scratch descend path rather
+  than a P2-specific failure. Restoring the pyramid recovered most of
+  GDP-A's losses. NOT cut yet — confounded by initialization at 30 ep.
+  Alternative hypothesis on record: SV AP50 is already 0.958 (detection
+  fine; strict-IoU localization is the gap) and P2 may add no usable
+  information at 17-22 px object scale — if the 100-ep pair confirms,
+  GDP is cut entirely and MSP becomes the sole architectural centerpiece.
+- **2026-06-12 — deconfounding pair launched: baseline vs GDP-B at the
+  full 100-ep protocol (seed 0, patience 20).** This is the GDP keep/cut
+  gate. Speed note for the eventual efficiency table: trained GDP-B
+  inference 2.1 ms / postprocess 1.3 ms per image at 1280 (batch-1
+  val) — P2's NMS cost is negligible after training.
 
 ## 9. Risks and honest unknowns
 
