@@ -37,6 +37,20 @@ class UltralyticsWrapper(DetectorWrapper):
         model_name = config["model_name"]
         self.model = YOLO(model_name)
 
+        # Custom-architecture path (Nadir-YOLO, decision_log D6): when
+        # `model_name` is an architecture YAML, YOLO() builds it with random
+        # init; `pretrained` transfers matching layers from a checkpoint
+        # (Ultralytics skips shape-mismatched layers, so edited modules keep
+        # their random init while the untouched backbone/neck load weights).
+        pretrained = config.get("pretrained")
+        if pretrained:
+            if not str(model_name).endswith((".yaml", ".yml")):
+                raise ValueError(
+                    "`pretrained` is only valid when model_name is an "
+                    f"architecture YAML, got model_name={model_name!r}"
+                )
+            self.model.load(pretrained)
+
     def train(self, output_dir: Path) -> dict[str, Any]:
         cfg = self.config
 

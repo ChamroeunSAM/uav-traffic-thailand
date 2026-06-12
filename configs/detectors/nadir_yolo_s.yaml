@@ -1,0 +1,25 @@
+# Nadir-YOLO-s training config (decision_log D6; docs/design_custom_yolo.md).
+# Phase 0: architecture is a stock-YOLO11s scaffold (see arch/ YAML); this
+# config proves the custom-YAML + pretrained-transfer path end-to-end.
+# Training hyperparameters mirror the Stage 1 protocol (1280px, cosine LR,
+# fixed batch) so later comparisons against the benchmark are like-for-like.
+# Outputs go to a separate project dir — Stage 1 artifacts are never touched.
+detector_class: ultralytics
+model_name: configs/detectors/arch/nadir_yolo11s.yaml
+pretrained: yolo11s.pt   # COCO checkpoint; matching layers transfer, edited modules keep random init
+data_yaml: data/splits/dataset.yaml
+epochs: 100
+imgsz: 1280
+batch: 8
+# batch=8 matches the Stage 1 medium-model setting. The s-scale model leaves
+# VRAM headroom, but the fixed-batch comparability rule (decision_log
+# 2026-05-08) applies to this paper's ablation table too: all Nadir-YOLO
+# ablation variants train at the same fixed batch.
+patience: 20
+cos_lr: true
+seed: 0
+workers: 4
+device: 0
+project: runs/nadir_yolo
+name: nadir_yolo_s_seed{seed}
+notes: "Nadir-YOLO Phase 0 scaffold — custom-YAML path, stock YOLO11s graph."
