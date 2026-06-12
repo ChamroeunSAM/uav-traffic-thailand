@@ -640,3 +640,46 @@ near-OOM → allocator thrash → inflated latency), fixed by per-process timing
 It shares no cause with the duplicate-label issue; both were merely caught by
 distrusting a physically-implausible number.
 ---
+
+## D6 — Custom detector paper ("Nadir-YOLO"): separate manuscript; Stage 1 and Paper 1 untouched
+
+**Date:** 2026-06-12
+**Status:** Accepted (scope decision; design details remain flexible).
+
+**Decision.** Build a custom lightweight YOLO variant (working name
+Nadir-YOLO) as a **standalone second paper** (ESWA-tier venue), NOT as a
+seventh detector in the Paper 1 benchmark. Paper 1 is frozen as a neutral
+evaluation of established peer-reviewed architectures and submits first;
+the new paper cites it for motivation (its winner, RT-DETR-L, costs ~2x
+params / ~2.5x latency and its advantage concentrates in SV AP50-95),
+reuses its infrastructure (dataset/splits, 6x5 benchmark as the comparison
+table, FPS/params/GFLOPs harness, Grad-CAM tooling, Stage 3/4 trajectory
+pipeline for a system section), and pre-registers success criteria.
+
+**Why not fold into Paper 1.** (1) Inserting our own model converts the
+neutral benchmark into model promotion, weakening Paper 1's core claim;
+(2) it invites CV-style ablation demands at a transportation venue;
+(3) it delays a finished manuscript.
+
+**Novelty scoping (from the 2026-06-12 lit scan, `docs/litscan_custom_yolo.md`).**
+"GSD/altitude-aware detection" broadly is ALREADY published (GSDet TIP'21,
+GSDDet'23, P2M-PF'25 — estimated GSD conditioning the classification
+branch; Xue et al.'21 — altitude scalar into the head). The claimable
+sliver: **known, exact GSD conditioning regression targets / assignment
+scale priors in metric units**, plus an analytically derived pyramid
+(P2-in/P5-out from GSD x class physical-size bounds — architecture itself
+is a commoditized recipe and is cited as such, not claimed). Saturated
+modules (bolt-on attention, BiFPN variants, SPD-Conv, IoU-loss swaps) are
+not led with. Names GSD-YOLO/UAV-YOLO/UTD-YOLO/AVD-YOLO/TSD-YOLO are
+taken; Nadir-YOLO / AGL-YOLO / Alti-YOLO were free as of 2026-06-12.
+
+**Design + plan.** `docs/design_custom_yolo.md` (living document: module
+menu, three-leg evidence package incl. the 100m->120m cross-altitude
+transfer experiment, pre-registered targets with explicit fallback to the
+accuracy-efficiency Pareto framing, phased plan with keep/cut/pivot gates).
+
+**Constraints carried over.** Stage 1 results, configs, and roster are
+never modified by this work; new training runs live under separate
+`runs/` projects; the locked environment is untouched (any Ultralytics
+internals surgery follows the `boxmot_patches.py` runtime-patch pattern).
+---
