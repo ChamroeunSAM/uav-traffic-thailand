@@ -1,0 +1,187 @@
+================================================================================
+F1 — ALGORITHM FLOWCHART (PowerPoint build brief)
+UAV-based vehicle detection + trajectory-quality benchmark for Thai traffic
+================================================================================
+
+HOW TO USE THIS FILE
+--------------------
+PART A — compact ASCII mock-up (the target layout at a glance).
+PART B — the figure specification (shapes, node labels, arrows, style).
+PART C — a ready-to-paste COMMAND/PROMPT for Claude Opus 4.8 (web) to generate
+         an EDITABLE PowerPoint (.pptx).
+Paste the WHOLE file into the web chat; the command refers to the spec above it.
+
+DESIGN INTENT
+-------------
+Reproduce the visual language of the reference figure (Fig. 1 of the
+YOLO-ResTinyECG paper): a left-to-right "snake" algorithm flowchart, black &
+white, bold serif headers, model choices grouped inside dashed rounded
+rectangles, and a dotted "ground-truth" feedback bar across the top.
+
+TWO RULES (read before building)
+--------------------------------
+1) LABELS ONLY — NO PROSE. Each node carries a short title (and, for the
+   benchmark groups, a terse list of candidate components). Do NOT put
+   explanatory sentences, rationale, or parameters inside any box. All
+   description goes in the main-text paragraph, not the figure.
+2) METHOD ONLY — NO RESULTS. Never name a winning model or quote any number.
+   List candidate detectors/trackers inside their dashed groups (that is the
+   design); everywhere a later step consumes the chosen model, write
+   "best detector" / "best tracker" (NOT "RT-DETR-L", etc.).
+
+================================================================================
+PART A — COMPACT ASCII MOCK-UP  (target layout; not to scale)
+================================================================================
+
+   +........... GROUND-TRUTH LABELS  (boxes + tracks) ...........+
+   :              |                    |                  |      :
+   :              v                    v                  v      :
+ ( INPUT ) --> [ DATA PREP ] --> /DATASET/ --> +===== DETECTOR BENCHMARK =====+
+  UAV video                                    |  YOLOv9-m  YOLOv10-m         |
+  100m/120m                                    |  YOLO11-m  YOLO12-m          |
+                                               |  YOLO26-m  RT-DETR-L         |
+                                               +==============================+
+                                                              | best detector
+   +----------------------------------------------------------+  (snake turns
+   |                                                             down + back)
+   v
+ ( RESULTS ) <-- +==== TRAJECTORY-QUALITY ====+ <-- +=== TRACKER BENCHMARK ===+ <-- +== VIDEO GT ==+
+                 |   Calibration              |     |  shared detections      |     | pseudo-tracks |
+                 |   Extraction               |     |  ByteTrack  BoT-SORT    |     |   linker      |
+                 |   Smoothing                |     |  OC-SORT   Deep OC-SORT |     |   CVAT (human)|
+                 |   Kinematics               |     |  raw | linked           |     +==============+
+                 |  [Axis1][Axis2][Axis3*]    |     +=========================+
+                 +============================+        ^ best tracker
+                    |  * Axis3 = GT-free
+                    v
+                 GT-FREE BRANCH: new unlabelled clips --> Axis3 + self-consistency
+
+  Legend:  ( ) stadium    [ ] process    / / data artifact    +== ==+ dashed group
+           --> data flow   ...> GT labels (dotted)   * = ground-truth-free
+           ACCENT (grey) = Trajectory-quality group + GT-free branch (the novel part)
+
+================================================================================
+PART B — FIGURE SPECIFICATION
+================================================================================
+
+SHAPE LEGEND (match the reference)
+----------------------------------
+  STADIUM (pill) ..................... start / end terminals (Input, Results)
+  RECTANGLE .......................... a process step
+  PARALLELOGRAM (slanted) ............ a data artifact (Dataset)
+  DASHED ROUNDED RECTANGLE ........... a grouped subsystem (the benchmarks +
+                                       the trajectory-quality framework)
+  DOTTED RECTANGLE (top, full width) . the ground-truth feedback bar
+  Bold serif title in each box. Black outlines / white fills; light-grey fill
+  ONLY for the accent group (Trajectory-quality) and the GT-free branch.
+
+LAYOUT — a snake (same as the reference)
+----------------------------------------
+  TOP ROW  L->R:  Input -> Data prep -> Dataset -> Detector benchmark
+  turn down on the right, then
+  BOTTOM ROW R->L: Video GT -> Tracker benchmark -> Trajectory-quality -> Results
+  ACROSS THE TOP (spanning the top row, arrows dropping down): Ground-truth bar.
+  One BRANCH drops off Trajectory-quality: the GT-free path.
+
+--------------------------------------------------------------------------------
+NODE LABELS  (title only; lists where shown are terse component names — no prose)
+--------------------------------------------------------------------------------
+
+[A]  INPUT                         STADIUM
+       UAV video acquisition
+       (sub-label: 100 m / 120 m)
+
+[B]  DATA PREPARATION              RECTANGLE
+       (title only)
+
+[C]  DATASET                       PARALLELOGRAM
+       (sub-label: LV / MV / SV)
+
+[D]  DETECTOR BENCHMARK            DASHED GROUP
+       list: YOLOv9-m, YOLOv10-m, YOLO11-m, YOLO12-m, YOLO26-m, RT-DETR-L
+       exit-arrow label: "best detector"
+
+[GT] GROUND-TRUTH LABELS           DOTTED BAR (top, spanning)
+       sub-label: bounding boxes + track identities
+       dotted arrows down into: [D], [F], [G]
+
+[E]  VIDEO GROUND TRUTH            DASHED GROUP   (mark: human-in-the-loop)
+       list (as a 3-step chain): pseudo-tracks -> linker -> CVAT
+       exit-arrow label: "ground-truth tracks"
+
+[F]  TRACKER BENCHMARK             DASHED GROUP
+       sub-label: detect once, track many
+       list: ByteTrack, BoT-SORT, OC-SORT, Deep OC-SORT
+       tag: raw | linked
+       exit-arrow label: "best tracker"
+
+[G]  TRAJECTORY-QUALITY FRAMEWORK  DASHED GROUP — ACCENT  (novel)
+       vertical chain (single-word boxes):
+         Calibration -> Extraction -> Smoothing -> Kinematics
+       three-axis panel (three small boxes):
+         Axis 1: identity | Axis 2: kinematics | Axis 3: plausibility (GT-free)
+       dashed in-arrow from a small box "GT reference ceiling"
+
+[H]  RESULTS                       STADIUM
+       (title only)
+
+[BR] GT-FREE BRANCH                accent lane off [G]
+       chain: new unlabelled clips -> Axis 3 + self-consistency proxies
+
+--------------------------------------------------------------------------------
+ARROWS
+--------------------------------------------------------------------------------
+  A -> B -> C -> D                         solid (top row)
+  D -> E   "best detector"                 solid (snake turn, down-right)
+  E -> F   "ground-truth tracks"           solid
+  F -> G   "best tracker"                  solid
+  G -> H                                    solid (ends bottom-left)
+  GT bar ...> D, F, G                       dotted ("labels")
+  GT reference ceiling --> G axis panel     dashed ("upper bound")
+  G -> BR                                    solid, accent
+
+--------------------------------------------------------------------------------
+ONE-LINE CAPTION (method-only; for under the figure)
+--------------------------------------------------------------------------------
+"Fig. 1. Algorithm flowchart of the proposed UAV vehicle-detection and
+trajectory-quality benchmark."
+
+================================================================================
+PART C — COMMAND / PROMPT FOR CLAUDE OPUS 4.8 (WEB)
+================================================================================
+Paste everything above plus the prompt below into the web chat.
+
+----------------------------- BEGIN PROMPT -----------------------------
+Create a single-slide, publication-quality algorithm flowchart as an EDITABLE
+PowerPoint (.pptx). Build it with python-pptx using real grouped shapes,
+connectors, and text boxes (NOT a flat image). Give me the .pptx, the python
+code, and a PNG preview.
+
+Follow PART A (ASCII mock-up) and PART B (specification) above EXACTLY: the snake
+layout, the shape legend, every node's label, and the arrow list.
+
+Hard requirements:
+- Slide 13.33 x 7.5 in (16:9), one slide.
+- LABELS ONLY: put titles (and the terse candidate lists where specified) in the
+  boxes. NO explanatory sentences, parameters, or rationale inside any box.
+- METHOD ONLY: no winning model and no metric values. List the candidate
+  detectors/trackers inside their dashed groups; everywhere a later step uses the
+  chosen model, write "best detector" / "best tracker".
+- Strictly black & white / greyscale, print-safe. Black outlines, white fills;
+  light-grey fill ONLY for the Trajectory-quality group and the GT-free branch.
+- Bold serif font for titles (Times-like); a clean face for the small sub-labels.
+- Shapes: stadium (Input/Results), rectangles (process), parallelogram
+  (Dataset), dashed rounded rectangles (the four grouped subsystems D/E/F/G),
+  a dotted full-width bar at the top (ground truth) with thin dotted arrows down
+  into D, F and G.
+- Arrow styles: solid = data flow; dotted = ground-truth labels; dashed = GT
+  reference ceiling. Label the hand-off arrows: "best detector",
+  "ground-truth tracks", "best tracker".
+- Top row L->R (Input -> Data prep -> Dataset -> Detector benchmark); turn down
+  on the right; bottom row R->L (Video GT -> Tracker benchmark ->
+  Trajectory-quality -> Results); GT-free branch drops below Trajectory-quality.
+- Add the one-line caption beneath the diagram.
+- Boxes/text auto-fit and non-overlapping; align on a clean grid; even margins.
+  Everything must stay individually editable in PowerPoint.
+------------------------------ END PROMPT ------------------------------
+================================================================================
