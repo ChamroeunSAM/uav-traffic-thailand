@@ -17,6 +17,7 @@ batch: 8
 # ablation variants train at the same fixed batch.
 patience: 20
 cos_lr: true
+cuda_mem_fraction: 0.9  # fail fast instead of silent shared-memory spillover
 seed: 0
 workers: 4
 device: 0

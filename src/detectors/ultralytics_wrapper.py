@@ -54,6 +54,21 @@ class UltralyticsWrapper(DetectorWrapper):
     def train(self, output_dir: Path) -> dict[str, Any]:
         cfg = self.config
 
+        # Optional VRAM guard (Nadir-YOLO runs): Windows WDDM silently spills
+        # past-physical VRAM into system RAM (~6x slowdown observed on the
+        # GDP P2 variant at batch=8, 45GB "GPU mem"). Capping the allocator
+        # converts that silent slow mode into an immediate OOM so the batch
+        # size gets fixed instead. No effect when the key is absent.
+        mem_frac = cfg.get("cuda_mem_fraction")
+        if mem_frac:
+            import torch
+
+            dev = cfg.get("device", 0)
+            if torch.cuda.is_available() and str(dev).isdigit():
+                torch.cuda.set_per_process_memory_fraction(float(mem_frac), int(dev))
+                logger.info("CUDA memory capped at %.0f%% of device %s",
+                            float(mem_frac) * 100, dev)
+
         train_kwargs = {
             "data": cfg["data_yaml"],
             "epochs": cfg["epochs"],
