@@ -186,6 +186,27 @@ and present as adopted engineering with citations.
 Sequencing constraint: none of this blocks Paper 1 — paper-writing for
 Paper 1 continues in parallel and submits first.
 
+## 8b. Phase 1 pilot log (running record; newest last)
+
+- **2026-06-12 — pilot pair 1, Thai val, 30 ep, seed 0, imgsz 1280.**
+  Baseline scaffold (= YOLO11s, batch 8): mAP50-95 all 0.816 / LV 0.893 /
+  MV 0.874 / SV 0.681. **GDP-A (P2-P4, batch 3): all 0.767 / LV 0.816 /
+  MV 0.847 / SV 0.637 — CUT.** The LV canary fired (-0.077): the size
+  analysis used LV <= 12 m, but LV includes trailers (16-18 m ~= 200 px
+  at 100 m → P5 is required). SV -0.044 is confounded (head + SPPF/C2PSA
+  from scratch, 128/409 transfer). Positives: -70% params real; trained-
+  model P2 NMS cost negligible (1.0 ms postprocess — the Phase 0 15.7 ms
+  reading was an untrained-model artifact).
+  *Memory finding:* P2 at 1280 spikes with per-frame instance count
+  (mosaic >1200 objects): batch 8 → 45 GB, batch 4 → 40+ GB mid-epoch
+  (silent WDDM spillover, erratic ~6x slowdowns). Fix: `cuda_mem_fraction:
+  0.9` wrapper guard (fail fast) + batch 3 (15.4 GB steady, stable
+  throughput). All P2-bearing variants train at batch 3.
+- **2026-06-12 — GDP-B launched (stock P3-P5 + added P2; 9.58M params,
+  115.8 GFLOPs @1280; 297/593 transfer).** Isolates the P2 question with
+  full backbone transfer; capacity slimming deferred to a separate
+  variant with trailer-corrected size bounds (slim-not-drop P5).
+
 ## 9. Risks and honest unknowns
 
 - **MSP may show ~nothing on fixed-GSD data** (conditioning helps when

@@ -1,0 +1,20 @@
+# Nadir-YOLO-s GDP variant B training config (design doc §5.2 + §8b pilot log).
+# Stock pyramid + added P2 — isolates the P2 question after variant A's cut.
+detector_class: ultralytics
+model_name: configs/detectors/arch/nadir_yolo11s_gdp_b.yaml
+pretrained: yolo11s.pt   # full backbone + head layers 11-16 transfer (297/593)
+data_yaml: data/splits/dataset.yaml
+epochs: 100
+imgsz: 1280
+batch: 3
+# batch=3 like all P2-bearing variants (see §8b memory finding: assignment
+# memory spikes with mosaic instance count; batch 4 spilled mid-epoch).
+cuda_mem_fraction: 0.9  # fail fast instead of silent shared-memory spillover
+patience: 20
+cos_lr: true
+seed: 0
+workers: 4
+device: 0
+project: runs/nadir_yolo
+name: nadir_yolo_s_gdp_b_seed{seed}
+notes: "Nadir-YOLO GDP-B (P2 added, P3-P5 kept) — ablation arm vs scaffold baseline."
