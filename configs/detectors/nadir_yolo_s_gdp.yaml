@@ -7,18 +7,20 @@ pretrained: yolo11s.pt   # backbone P1-P4 + shared-shape head layers transfer; P
 data_yaml: data/splits/dataset.yaml
 epochs: 100
 imgsz: 1280
-batch: 4
-# batch=4, NOT 8: the P2 level at 1280 quadruples the anchor count
+batch: 3
+# batch=3, NOT 8: the P2 level at 1280 quadruples the anchor count
 # (320^2 + 160^2 + 80^2 vs 160^2 + 80^2 + 40^2 grid cells), and TAL
-# assignment + P2 activations pushed batch=8 to ~45 GB (shared-memory
-# spillover on the 32 GB card, ~6x slowdown; observed 2026-06-12 pilot).
-# Same intrinsic-exception pattern as YOLO12m batch=4 in Stage 1
-# (decision_log 2026-05-08/2026-05-16); Ultralytics nbs=64 keeps the
-# effective LR/accumulation consistent across batch sizes.
+# assignment memory spikes with per-frame instance count (mosaic packs
+# >1200 objects). Observed 2026-06-12 pilots: batch=8 -> ~45 GB; batch=4
+# -> 30 GB early but 40+ GB mid-epoch on dense batches (silent WDDM
+# spillover, erratic ~6x slowdowns, 32 GB card). Same intrinsic-exception
+# pattern as YOLO12m batch=4 in Stage 1 (decision_log 2026-05-08 /
+# 2026-05-16); Ultralytics nbs=64 keeps effective LR consistent.
 cuda_mem_fraction: 0.9
 # Hard VRAM cap (fail fast instead of silent shared-memory spillover).
-# batch=4 reserved 30.1 GB in the 2026-06-12 pilot — if a capped run OOMs,
-# drop to batch=3 rather than raising the cap.
+# If a capped run OOMs at batch=3, drop to batch=2 rather than raising
+# the cap; if batch=2 still OOMs, the P2 head needs slimming (Phase 1
+# design change), not more memory.
 patience: 20
 cos_lr: true
 seed: 0
