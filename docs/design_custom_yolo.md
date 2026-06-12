@@ -49,11 +49,20 @@ chosen name immediately before submission.
 Default: **YOLO11-s**. Rationale: the genre publishes on n/s scales (the
 lightweight story); YOLO11's Ultralytics implementation is the most
 mature for custom-YAML surgery; our Stage 1 already characterizes the
-YOLO11 family. Alternates: YOLO26-s (best YOLO in our benchmark at m
-scale; NMS-free is attractive but its E2E head complicates assignment
-surgery), or -n scale if the efficiency story wants to be more extreme.
-Decide after Phase 1 pilots — whichever base gets the modules working
-cleanly wins; do not burn time forcing a stubborn codebase.
+YOLO11 family. Alternates: **YOLOv10-s first** (peer-reviewed NeurIPS
+2024 base — a citability edge — and fastest/lightest in our benchmark;
+disqualified as default only because its NMS-free dual-assignment head
+is exactly where MSP operates), then YOLO26-s (same E2E-head objection,
+newer code path), or -n scale if the efficiency story wants to be more
+extreme. **Trigger conditions recorded 2026-06-12:** (1) if Phase 1
+settles on the metric-REGRESSION mechanism (5.1b, no assignment
+surgery), the dual-assignment objection mostly evaporates — run a
+YOLOv10-s pilot, it costs one training run; (2) if Phase 2 FPS is
+NMS-bound (P2 inflates candidates; the Phase 0 smoke already showed
+15.7 ms postprocess vs 1.2 ms inference at 1280), that is a measured
+reason to revisit NMS-free bases. Decide after Phase 1 pilots —
+whichever base gets the modules working cleanly wins; do not burn time
+forcing a stubborn codebase.
 
 ## 5. Module menu (centerpiece + supporting; final roster decided by ablation)
 
@@ -87,6 +96,10 @@ GSD plumbing: per-image scalar from altitude metadata (our data: 0.030 /
 filename gives it for free). On datasets without altitude metadata
 (VisDrone) the module degrades gracefully: learned default scalar or
 disabled — be explicit about this in the paper rather than hiding it.
+NOTE (2026-06-12): `src/data/gsd.py` returns *native-4K* GSD; the module
+must consume **effective GSD** = native GSD × (native size ÷ input size)
+— at imgsz=1280 that is 0.090 (100 m) / 0.120 m/px (120 m). The resize
+factor is known exactly per image, so the prior stays exact.
 
 ### 5.2 Supporting — GSD-Derived Pyramid (working acronym GDP)
 

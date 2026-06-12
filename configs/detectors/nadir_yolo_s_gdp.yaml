@@ -1,0 +1,18 @@
+# Nadir-YOLO-s GDP variant training config (design doc §5.2; decision_log D6).
+# Identical protocol to nadir_yolo_s.yaml — only the architecture differs —
+# so pilot/ablation deltas are attributable to the pyramid change alone.
+detector_class: ultralytics
+model_name: configs/detectors/arch/nadir_yolo11s_gdp.yaml
+pretrained: yolo11s.pt   # backbone P1-P4 + shared-shape head layers transfer; P2 path fresh
+data_yaml: data/splits/dataset.yaml
+epochs: 100
+imgsz: 1280
+batch: 8
+patience: 20
+cos_lr: true
+seed: 0
+workers: 4
+device: 0
+project: runs/nadir_yolo
+name: nadir_yolo_s_gdp_seed{seed}
+notes: "Nadir-YOLO GDP (P2-P4 pyramid) — ablation arm vs the stock-pyramid scaffold."
