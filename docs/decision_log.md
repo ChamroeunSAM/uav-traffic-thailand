@@ -682,4 +682,21 @@ accuracy-efficiency Pareto framing, phased plan with keep/cut/pivot gates).
 never modified by this work; new training runs live under separate
 `runs/` projects; the locked environment is untouched (any Ultralytics
 internals surgery follows the `boxmot_patches.py` runtime-patch pattern).
+
+**Resolution — Phase 1 GDP gate (2026-06-15): GDP CUT.** The granular
+detection pyramid (added P2 head) was tested via a 100-epoch deconfounding
+pair (baseline scaffold vs GDP-B, seed 0, patience 20) to remove the
+from-scratch initialization confound that depressed the 30-epoch pilots.
+Uniform re-val of both `best.pt` (imgsz 1280, val split) gave: SV mAP50-95
+**+0.0046** for GDP-B (0.7358 vs 0.7312) — i.e. P2 **does** help small
+vehicles once deconfounded, **refuting** the "no usable info at 17–22 px"
+hypothesis and reversing the 30-ep deficit (then −0.018 on SV). However, the
+SV gain is small and offset by LV (−0.0104) and MV (−0.0040), netting
+**−0.0033 overall mAP50-95**, and GDP-B costs **≈5× GFLOPs (115.8 vs 21.6)
+with no params saving** (9.58M vs 9.41M). **Decision: drop GDP from the
+architecture and report it as an ablation finding (P2 aids SV but not at 5×
+compute).** Per the §8b contingency, **MSP (metric-scale prior) becomes the
+sole architectural centerpiece.** Full numbers + protocol: `docs/design_custom_yolo.md`
+§8b (2026-06-15 entry). Next action: MSP metric-prior prototype
+(`design_custom_yolo.md` §5.1, mechanism (b) first).
 ---

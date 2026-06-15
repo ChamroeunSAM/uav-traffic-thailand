@@ -222,6 +222,175 @@ Paper 1 continues in parallel and submits first.
   gate. Speed note for the eventual efficiency table: trained GDP-B
   inference 2.1 ms / postprocess 1.3 ms per image at 1280 (batch-1
   val) — P2's NMS cost is negligible after training.
+- **2026-06-15 — deconfounding pair COMPLETE → GDP CUT (gate resolved).**
+  Both ran the full 100 ep (seed 0, patience 20 did not trigger; baseline
+  exit 17:01, GDP-B exit 18:49, ~110 min @ batch 3 + ~65 s/ep). Uniform
+  re-val of both `best.pt` (imgsz 1280, batch 4, val split, workers 0 —
+  Windows spawn guard), so the deltas are apples-to-apples:
+
+  | run | all 50-95 | mAP50 | LV 50-95 | MV 50-95 | **SV 50-95** |
+  |-----|-----------|-------|----------|----------|--------------|
+  | baseline | 0.8405 | 0.9442 | 0.8962 | 0.8940 | 0.7312 |
+  | GDP-B | 0.8372 | 0.9472 | 0.8858 | 0.8900 | **0.7358** |
+  | Δ | **−0.0033** | +0.0029 | −0.0104 | −0.0040 | **+0.0046** |
+
+  **The 30-ep story REVERSED once deconfounded.** At 30 ep GDP-B trailed on
+  SV (0.663 vs 0.681, −0.018); at 100 ep GDP-B **beats** baseline on SV
+  (+0.0046) — so the §8b alternative hypothesis ("P2 adds no usable info at
+  17–22 px") is **refuted**: P2 *does* help small vehicles, the 30-ep deficit
+  was pure from-scratch initialization. BUT the SV gain is small (+0.005) and
+  paid for by LV (−0.0104) and MV (−0.0040), netting −0.0033 overall (GDP-B is
+  ahead only on loose-IoU mAP50). Decisive against keeping: GDP-B costs
+  **~115.8 GFLOPs vs ~21.6 baseline (≈5×)** for **no params saving** (9.58M vs
+  9.41M) — a poor trade for a net-flat overall mAP. **DECISION: cut GDP from
+  the architecture; record as an ablation finding (P2 helps SV but not at 5×
+  FLOPs). MSP becomes the sole architectural centerpiece** (decision_log D6
+  resolution; §8b contingency executed). Note absolute "all" here (0.8405)
+  exceeds the in-training-logged 0.8264 by a uniform re-val offset; only the
+  Δ is load-bearing. ★ NEXT ACTION: build the MSP metric-prior prototype
+  (§5.1, mechanism (b) metric-regression first; if (b) is chosen, trigger the
+  YOLOv10-s base pilot per §4).
+
+## 8c. MSP prototype plan (Phase 1 centerpiece; started 2026-06-15)
+
+GDP is cut (§8b), so MSP carries the novelty. Mechanism **(b) metric
+regression** is the chosen starting point (§5.1) → per §4 trigger (1) the
+dual-assignment objection evaporates, so a **YOLOv10-s base pilot is now
+unlocked** (one training run, peer-reviewed base, citability edge).
+
+**Done so far.** `src/data/gsd.py` gains `effective_gsd_m_per_px(name, imgsz)`
+= native × (3840 / imgsz). Verified on all 2107 train files: 100 m → 0.090,
+120 m → 0.120 m/px @1280 (matches §5.1). This is the exact per-image scalar
+every MSP mechanism consumes; degrades to `default`/None on names without an
+altitude prefix (VisDrone).
+
+**The core idea restated.** A motorcycle is ~2 m of road regardless of
+altitude, but at imgsz 1280 it is ~22 px at 100 m vs ~17 px at 120 m — so the
+*pixel* regression target for the same physical object differs by altitude.
+MSP-(b) removes that altitude dependence by making the regression space
+metric (or, equivalently, GSD-normalized).
+
+**Three implementation routes (decreasing simplicity, increasing fidelity) —
+DECISION FORK, not yet chosen:**
+- **(i) GSD-equalizing resize (preprocessing; NO internals surgery).** Resize
+  each image so effective GSD is a fixed constant (e.g. 0.090 m/px for all),
+  i.e. downscale 120 m images by 0.090/0.120 = 0.75 before the 1280 letterbox.
+  Then a physical object is the same pixel size at both altitudes and *stock
+  pixel regression already is metric regression*. Cleanest prototype, no DFL
+  surgery, locked env untouched (a dataloader/transform hook). Risk: changes
+  effective input scale per altitude; interacts with mosaic/letterbox; must
+  confirm it doesn't just throw away 120 m resolution.
+- **(ii) Metric DFL target rescaling (loss surgery; faithful "predict in
+  metres").** Transform anchor→box ltrb targets to metres via per-image
+  eff-GSD before DFL binning, decode back to px at inference. Snag: DFL has a
+  fixed bin range (reg_max=16 in stride units) — metric targets must be
+  renormalized into that range, so this reduces to a per-image scale on the
+  regression coordinates. Runtime-patch `v8DetectionLoss` (boxmot_patches.py
+  pattern); locked env untouched.
+- **(iii) Metric loss-weighting (lightest touch).** Keep pixel regression but
+  weight the box/DFL loss per-image by eff-GSD so metric error (m) is the
+  optimized quantity. Weakest novelty; likely an ablation row, not the lead.
+
+**Recommended prototype path:** start with **(i)** — it tests the central
+hypothesis (altitude-normalized scale helps) with the least machinery and no
+internals patch, and it cleanly answers "does removing altitude scale variance
+help SV?" If (i) shows signal, escalate to (ii) for the paper's headline
+mechanism and to claim metric regression proper; (iii) is the fallback/ablation.
+**Open question for the author before coding (ii):** is the claim "regress in
+metres" (needs ii) or "GSD-invariant detection" (i suffices)? The novelty
+sliver in D6 is *known-exact-GSD conditioning of regression* — (ii) is the
+literal realization; (i) is a strong, honest first probe.
+
+**Smoke + gate.** Prototype on Thai val, 30 ep, seed 0, vs the just-finished
+`nadir_pilot_base_100ep` baseline (re-val numbers in §8b: all 0.8405 / LV
+0.8962 / MV 0.8940 / SV 0.7312). MSP earns its keep only if it lifts SV
+mAP50-95 without an LV/MV regression that nets negative — the same bar GDP
+failed. Cross-altitude transfer (100 m→120 m) is the designed showcase (§6
+leg); a flat fixed-GSD result still feeds the Pareto/benchmark framing (§9).
+
+- **2026-06-15 — route (i) A/B RESULT → probe SUCCEEDED, escalate to (ii).**
+  Built a GSD-equalized dataset (`scripts/05_make_gsd_normalized_dataset.py`:
+  120 m centre-cropped to the 100 m scale, 74.8% of 120 m boxes kept) + a
+  matched plain-1280×720 control (no crop). Two 30-ep smokes (seed 0, stock
+  YOLO11s scaffold), each scored on its own matched val. Per-class mAP50-95:
+
+  | scope | all | LV | MV | **SV** |
+  |-------|-----|----|----|--------|
+  | msp_i  all  | 0.8335 | 0.8780 | 0.8904 | 0.7320 |
+  | ctrl_i all  | 0.8266 | 0.8941 | 0.8889 | 0.6967 |
+  | **Δ all**   | **+0.0069** | −0.0161 | +0.0015 | **+0.0353** |
+  | Δ 100 m | −0.0015 | −0.0036 | +0.0007 | −0.0015 |
+  | Δ 120 m | **+0.0147** | −0.0322 | −0.0003 | **+0.0765** |
+
+  **Read:** 100 m Δ≈0 is the built-in control (100 m frames are identical in
+  both pipelines → must match, and do — harness validated). The action is all
+  at 120 m, where GSD-equalization acts: **SV +0.0765** (scale-normalizing the
+  coarser-altitude motorcycles up to the finer reference helps exactly the
+  smallest objects — the MSP hypothesis confirmed); LV −0.0322 (large vehicles
+  don't need it, and the crop costs some). **Caveat capping the magnitude, not
+  the direction:** msp_i's 120 m val is cropped (~25% edge boxes gone), so its
+  val is genuinely easier → the +0.0765 is optimistic, and route (i) has an
+  inherent cost (edge objects cropped out at inference too). **Decision: route
+  (i) is a successful PROBE, not the final mechanism. Escalate to route (ii)
+  (metric DFL regression) — same scale invariance, no cropping, no val
+  asymmetry, and the literal D6 novelty claim.** Datasets/configs:
+  `configs/data/dataset_{gsdnorm,plain1280}.yaml`,
+  `configs/detectors/nadir_{msp,ctrl}_i_30ep.yaml`.
+
+## 8d. MSP route (ii) — metric DFL regression (started 2026-06-15)
+
+Goal: make the box-size regression target metric (GSD-normalized) so a 100 m
+and a 120 m motorcycle present the SAME regression target, WITHOUT cropping.
+Realized as a runtime patch of Ultralytics' `v8DetectionLoss` (boxmot_patches
+pattern; locked env untouched), keyed off the per-image effective GSD from
+`src/data/gsd.effective_gsd_m_per_px`. (Running record; newest last.)
+
+- **2026-06-15 — internals analysis: pure metric-target DFL is NOT loss-only
+  learnable (corrects the §4 assumption).** Read `v8DetectionLoss.bbox_loss`
+  (`utils/loss.py`): CIoU is scale-invariant (global GSD scaling is a no-op
+  there), so GSD can only act on the DFL target (`bbox2dist`, distances in
+  stride-unit bins [0,15]). But making the DFL target altitude-invariant
+  (a 2 m bike → same target at 22 px @100 m and 17 px @120 m) asks the network
+  to emit the SAME distribution from DIFFERENT pixels — only possible if it
+  KNOWS the GSD. Altitude isn't reliably inferable from a local nadir patch,
+  so a metric-target loss patch ALONE would train toward a blurry average.
+  **Conclusion: faithful metric regression (b) requires conditioning the
+  forward pass on the known GSD (b necessarily entails a c-like input).** Three
+  viable realizations, decision pending:
+  - **(ii-A) GSD input channel + metric DFL target.** Append a per-image
+    GSD-broadcast plane as a 4th input channel (first conv goes 3→4 ch;
+    pretrained conv1 partially transfers), and GSD-normalize the DFL target.
+    Most faithful to "known-exact-GSD conditions regression" (the D6 sliver),
+    biggest change.
+  - **(ii-B) FiLM scalar conditioning + metric DFL target.** Inject GSD as a
+    FiLM (scale/shift) on an early feature map via a tiny MLP; metric DFL
+    target as above. Closest to Xue et al. 2021 (cite/differentiate); medium
+    change, no first-conv edit.
+  - **(ii-C) Metric loss-weighting (loss-only, IS learnable).** Keep pixel
+    targets; weight box/DFL loss per-image by GSD so physical (metre) error is
+    optimized consistently across altitudes. Pure runtime patch, quickest
+    smoke, weakest novelty — a legitimate ablation row, not the headline.
+  Recommendation: smoke **(ii-C)** first (one runtime patch, immediate read on
+  whether GSD-weighted regression moves SV at 120 m), then build **(ii-A)** as
+  the headline if (C) or route (i) justify it.
+- **2026-06-15 — (ii-A) chosen; GSD-input-channel plumbing BUILT + smoke-passed.**
+  `src/detectors/msp_patches.py`: `MSPTrainer` (builds the model with ch=4 and
+  seeds the first conv's RGB sub-weights from the 3-ch pretrained checkpoint,
+  4th/GSD channel zero-init → transfer preserved) + `MSPValidator`; both append
+  a per-image GSD plane (`effective_gsd_m_per_px(im_file, imgsz)`) in
+  preprocess. Wired via `ultralytics_wrapper` `msp_mode: ii_a` (runtime
+  subclass only — stock runs untouched). Two Ultralytics-internals snags found
+  and fixed: (1) import path is top-level (`data.gsd`, `.msp_patches`), not
+  `src.*`; (2) `final_eval` reloads best.pt through AutoBackend, whose warmup
+  uses a `self.data["channels"]`-channel dummy → needs `channels: 4` in the
+  data yaml (`configs/data/dataset_msp4ch.yaml`); the loader still reads 3-ch
+  (`IMREAD_COLOR` branches only on grayscale), so the GSD channel is added in
+  preprocess as intended. 1-epoch/10%-data smoke ran train + during-train val +
+  final best.pt val with no error (exit 0). **STATUS: GSD-conditioning path
+  validated; metric-DFL-target half (gated `msp_metric_target`) NOT yet built.
+  ★ NEXT: (a) 30-ep A/B — `nadir_msp_iia` (channel only) vs the baseline/control
+  — to read whether GSD-conditioning alone moves SV@120 m; (b) add the metric
+  DFL target on top.** Smoke config: `configs/detectors/nadir_msp_iia_smoke.yaml`.
 
 ## 9. Risks and honest unknowns
 

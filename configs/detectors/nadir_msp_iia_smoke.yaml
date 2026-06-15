@@ -1,0 +1,22 @@
+# Nadir-YOLO MSP route (ii-A) SMOKE — validate the GSD-input-channel plumbing.
+# 1 epoch, 10% of data, native dataset (NO crop/resize — route ii feeds full
+# images + GSD). Confirms: 4ch first conv builds + seeds, GSD plane injects in
+# train AND val preprocess, forward/backward run, val completes. Not a result.
+detector_class: ultralytics
+model_name: configs/detectors/arch/nadir_yolo11s.yaml
+pretrained: yolo11s.pt
+data_yaml: configs/data/dataset_msp4ch.yaml
+msp_mode: ii_a
+epochs: 1
+fraction: 0.1
+imgsz: 1280
+batch: 8
+patience: 20
+cos_lr: true
+cuda_mem_fraction: 0.9
+seed: 0
+workers: 4
+device: 0
+project: runs/nadir_yolo
+name: nadir_msp_iia_smoke
+notes: "MSP ii-A smoke: GSD 4th input channel plumbing check."

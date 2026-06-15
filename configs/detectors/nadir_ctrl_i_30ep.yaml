@@ -1,0 +1,22 @@
+# Nadir-YOLO MSP route (i) CONTROL — plain 1280x720 input, NO GSD crop.
+# Identical to nadir_msp_i_30ep except the dataset is plain-resized (both
+# altitudes), so GSD still varies. Isolates the scale-invariance variable:
+# (msp_i - ctrl_i) is the clean effect of GSD equalization at matched input
+# resolution. (Comparing msp_i to the native-res baseline would confound
+# GSD-normalization with the 1280x720 downsizing.)
+detector_class: ultralytics
+model_name: configs/detectors/arch/nadir_yolo11s.yaml
+pretrained: yolo11s.pt
+data_yaml: configs/data/dataset_plain1280.yaml
+epochs: 30
+imgsz: 1280
+batch: 8
+patience: 20
+cos_lr: true
+cuda_mem_fraction: 0.9
+seed: 0
+workers: 4
+device: 0
+project: runs/nadir_yolo
+name: nadir_ctrl_i_30ep
+notes: "MSP route i control: plain-resized 1280x720, no GSD equalization."

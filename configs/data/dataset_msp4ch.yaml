@@ -1,0 +1,14 @@
+# MSP route (ii-A): same merged dataset as dataset.yaml, but channels=4 so
+# Ultralytics builds the 4ch model and warms up with a 4ch dummy. The loader
+# still reads 3ch images (IMREAD_COLOR branches only on grayscale); the GSD
+# 4th channel is appended in MSPTrainer/MSPValidator preprocess.
+path: C:\Users\User\Desktop\uav-traffic-thailand\data\annotations\merged
+train: train/images
+val: val/images
+test: test/images
+channels: 4
+nc: 3
+names:
+- LV
+- MV
+- SV

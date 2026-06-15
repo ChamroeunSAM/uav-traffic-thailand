@@ -87,6 +87,15 @@ class UltralyticsWrapper(DetectorWrapper):
             "fraction": cfg.get("fraction", 1.0),
         }
 
+        # MSP route (ii-A): swap in the GSD-input-channel trainer (4ch first
+        # conv + per-image GSD plane). Runtime subclass only; stock runs are
+        # untouched when the key is absent. See src/detectors/msp_patches.py.
+        if cfg.get("msp_mode") == "ii_a":
+            from .msp_patches import MSPTrainer
+
+            train_kwargs["trainer"] = MSPTrainer
+            logger.info("MSP route ii-A enabled: GSD input channel (4ch first conv)")
+
         logger.info("Ultralytics training kwargs: %s", train_kwargs)
         t0 = time.monotonic()
         results = self.model.train(**train_kwargs)

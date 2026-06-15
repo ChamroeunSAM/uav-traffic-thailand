@@ -1,0 +1,9 @@
+path: C:\Users\User\Desktop\uav-traffic-thailand\data\annotations\merged_plain1280
+train: train/images
+val: val/images
+test: test/images
+nc: 3
+names:
+- LV
+- MV
+- SV

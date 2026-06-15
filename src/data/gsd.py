@@ -49,3 +49,33 @@ def gsd_m_per_px(name: str | Path, default: float | None = None) -> float | None
     if alt is None:
         return default
     return GSD_M_PER_PX.get(alt, default)
+
+
+# Native long-side the GSD_M_PER_PX scalars were calibrated at (4K UHD width).
+NATIVE_PX = 3840
+
+
+def effective_gsd_m_per_px(
+    name: str | Path,
+    imgsz: int,
+    native_px: int = NATIVE_PX,
+    default: float | None = None,
+) -> float | None:
+    """GSD (m/px) **at the network input resolution**, the value MSP must use.
+
+    The calibrated :data:`GSD_M_PER_PX` is native-4K metres/pixel. When the
+    image is resized to ``imgsz`` for training/inference, each input pixel
+    covers more ground, so the effective GSD scales by the resize factor:
+
+        effective = native_gsd * (native_px / imgsz)
+
+    At ``imgsz=1280`` (native 3840) the factor is 3.0, giving 0.090 m/px at
+    100 m and 0.120 m/px at 120 m — the values quoted in design doc §5.1.
+    The resize factor is exact and known per image, so the prior stays exact.
+
+    Returns ``default`` when the name lacks a usable altitude prefix.
+    """
+    native = gsd_m_per_px(name, default=None)
+    if native is None:
+        return default
+    return native * (native_px / float(imgsz))

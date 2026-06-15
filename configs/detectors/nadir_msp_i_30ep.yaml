@@ -1,0 +1,20 @@
+# Nadir-YOLO MSP route (i) — GSD-equalized input (design doc §8c).
+# Stock YOLO11s scaffold trained on the GSD-NORMALIZED dataset (120 m frames
+# centre-cropped so effective GSD matches 100 m). A/B partner: nadir_ctrl_i_30ep
+# (same pipeline, no crop). 30-ep smoke vs the deconfounded baseline.
+detector_class: ultralytics
+model_name: configs/detectors/arch/nadir_yolo11s.yaml
+pretrained: yolo11s.pt
+data_yaml: configs/data/dataset_gsdnorm.yaml
+epochs: 30
+imgsz: 1280
+batch: 8
+patience: 20
+cos_lr: true
+cuda_mem_fraction: 0.9
+seed: 0
+workers: 4
+device: 0
+project: runs/nadir_yolo
+name: nadir_msp_i_30ep
+notes: "MSP route i: GSD-equalized (120m centre-cropped to 100m scale)."
