@@ -980,9 +980,12 @@ def fig_ablation():
 # (COCO/fine-tuned = mean of RT-DETR-L + YOLO26-m; VisDrone = the single
 # YOLOv8x). Individual architecture points are overlaid faintly to show spread.
 ABL_REGIMES = [
-    ("COCO\n(general)", "COCO", [("rtdetr_l", "pretrained"), ("yolo26m", "pretrained")]),
-    ("VisDrone\n(aerial)", "aerial", [("visdrone8x", "visdrone")]),
-    ("Fine-tuned\n(target)", "fine-tuned", [("rtdetr_l", "finetuned"), ("yolo26m", "finetuned")]),
+    ("mean RT-DETR-L + YOLO26-m\n(pretrained COCO weights)", "COCO",
+     [("rtdetr_l", "pretrained"), ("yolo26m", "pretrained")]),
+    ("YOLOv8x\n(VisDrone weights)", "aerial",
+     [("visdrone8x", "visdrone")]),
+    ("mean RT-DETR-L + YOLO26-m\n(fine-tuned on target)", "fine-tuned",
+     [("rtdetr_l", "finetuned"), ("yolo26m", "finetuned")]),
 ]
 CLASS_LINE = {"LV": ("#D55E00", "o", "-"), "MV": ("#0072B2", "s", "-"),
               "SV": ("#009E73", "^", "-")}
@@ -1025,7 +1028,8 @@ def fig_ablation_line():
                              color=col, alpha=0.28, ms=5, zorder=1)
         axA.plot(x, ys, ls, color=col, marker=mk, ms=8, lw=2.0,
                  label=f"{c}", zorder=3)
-    axA.set_xticks(x); axA.set_xticklabels([r[0] for r in ABL_REGIMES])
+    axA.set_xticks(x); axA.set_xticklabels([r[0] for r in ABL_REGIMES], fontsize=8)
+    axA.set_xlim(-0.6, 2.6)
     axA.set_ylabel("Localization recall (IoU≥0.5)")
     axA.set_ylim(0.3, 1.03)
     axA.set_title("(a) Detection: vehicles the detector sees")
@@ -1046,7 +1050,8 @@ def fig_ablation_line():
         if not np.isnan(v):
             axB.annotate(f"{v:.2f}", (xi, v), textcoords="offset points",
                          xytext=(0, 9), ha="center", fontsize=10)
-    axB.set_xticks(x); axB.set_xticklabels([r[0] for r in ABL_REGIMES])
+    axB.set_xticks(x); axB.set_xticklabels([r[0] for r in ABL_REGIMES], fontsize=8)
+    axB.set_xlim(-0.6, 2.6)
     axB.set_ylabel("Trajectory completeness")
     axB.set_ylim(0.2, 1.0)
     axB.set_title("(b) Trajectory: fraction of GT recovered")
