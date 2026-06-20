@@ -1,0 +1,63 @@
+% Requires, in the preamble:
+%   \usepackage{algorithm}
+%   \usepackage{algpseudocodex}   % or algpseudocode
+%   \usepackage{amsmath}
+% Pseudocode for the Stage-4 three-axis trajectory-quality evaluation
+% (src/evaluation/trajectory_metrics.py; driver scripts/04_eval_trajectories.py).
+\begin{algorithm}[ht]
+\caption{\textsc{EvaluateTrajectoryQuality} --- three-axis scoring of world-coordinate trajectories}
+\label{alg:trajquality}
+\begin{algorithmic}[1]
+\Require Predicted trajectories $P$ and ground-truth $G$, each a table of rows
+\Statex \hspace{3.1em} $(\textit{id},f,x,y,x_s,y_s,v,v_s,\psi,\psi_s,a,j,\textit{seg})$ in world metres ($_s$\,=\,smoothed)
+\Statex \textbf{Params:} match gate $\gamma{=}5$\,m; accel bound $a_{\max}{=}8$\,m/s$^2$; speed cap $v_{\max}{=}41.7$\,m/s; move speed $v_0{=}1$\,m/s
+\Ensure Metrics for each variant $\in\{\text{smoothed},\text{raw}\}$
+\Statex
+\State $\mathcal{M} \gets \Call{MatchFrames}{G,P,\gamma}$ \Comment{greedy nearest, world metres}
+\State $A_1 \gets \Call{Axis1Identity}{G,\mathcal{M}}$ \Comment{variant-independent}
+\ForAll{$\nu \in \{\text{smoothed},\text{raw}\}$}
+  \State $A_2 \gets \Call{Axis2Accuracy}{G,P,\mathcal{M},\nu}$;\quad $A_3 \gets \Call{Axis3Plausibility}{P,\nu}$
+  \State $\textit{out}[\nu] \gets (A_1, A_2, A_3)$
+\EndFor
+\State \Return \textit{out}
+\Statex
+\Procedure{MatchFrames}{$G,P,\gamma$} \Comment{per-frame, on \emph{smoothed} position}
+  \State $\mathcal{M} \gets \emptyset$
+  \ForAll{frames $f$ shared by $G$ and $P$}
+    \State $D \gets$ pairwise distances $\lVert (x_s,y_s)^G_i - (x_s,y_s)^P_k \rVert$ for points in $f$
+    \State sort the pairs with $D_{ik}\le\gamma$ by ascending distance
+    \ForAll{$(i,k)$ in that order}
+      \If{$i,k$ both still free} mark matched; add $(f,\textit{id}^G_i,\textit{id}^P_k,D_{ik})$ to $\mathcal{M}$ \EndIf
+    \EndFor
+  \EndFor
+  \State \Return $\mathcal{M}$
+\EndProcedure
+\Statex
+\Procedure{Axis1Identity}{$G,\mathcal{M}$} \Comment{identity persistence vs GT}
+  \ForAll{GT tracks $t$}
+    \State $\textit{comp}_t \gets$ (matched frames of $t$) / (total frames of $t$)
+    \State $\textit{frag}_t \gets$ \# distinct predicted ids matched to $t$ \Comment{ideal $=1$}
+    \State $\textit{sw}_t \gets$ \# changes of predicted id along $t$ in frame order
+  \EndFor
+  \State \Return $\big(\overline{\textit{comp}},\ \overline{\textit{frag}},\ \textstyle\sum_t \textit{sw}_t,\ \text{frac}(\textit{comp}_t\!\ge\!0.8)\big)$
+\EndProcedure
+\Statex
+\Procedure{Axis2Accuracy}{$G,P,\mathcal{M},\nu$} \Comment{kinematic accuracy vs matched GT}
+  \State select position / speed / heading channels per $\nu$ (raw or $_s$); matching stays on $_s$
+  \ForAll{matched pairs $(i,k)\in\mathcal{M}$}\ \ $e_{ik} \gets \lVert \text{pos}^G_i - \text{pos}^P_k \rVert$ \EndFor
+  \State $\textit{ADE}\gets\operatorname{mean}(e)$;\quad $\textit{RMSE}\gets\sqrt{\operatorname{mean}(e^2)}$
+  \State $\textit{FDE}\gets\operatorname{mean}_t\, e$ at each GT track's last matched frame
+  \State $\textit{speedMAE}\gets\operatorname{mean}\lvert v^G - v^P\rvert$
+  \State $\textit{headMAE}\gets\operatorname{mean}\,\Call{WrapDeg}{\psi^G-\psi^P}$ over pairs with $\lvert v^G\rvert,\lvert v^P\rvert > v_0$
+  \State \Return $(\textit{ADE},\textit{FDE},\textit{RMSE},\textit{speedMAE},\textit{headMAE})$
+\EndProcedure
+\Statex
+\Procedure{Axis3Plausibility}{$P,\nu$} \Comment{intrinsic plausibility, GT-free}
+  \State take $(v,a,j,v_x,v_y,a_x,a_y)$ per $\nu$ \Comment{raw recomputed per segment from $(x,y)$}
+  \State $\textit{moving}\gets v > v_0$;\quad $\kappa \gets \lvert v_x a_y - v_y a_x\rvert / v^3$ on \textit{moving}
+  \State \Return $\big(\text{frac}(a\!\le\!a_{\max}),\ \text{frac}(v\!\le\!v_{\max}),\ a_{p95},\ a_{\max},\ \bar{j},\ j_{p95},\ \bar{\kappa},\ v_{\text{med}},\ v_{p95},\ v_{\max}\big)$
+\EndProcedure
+\Statex
+\Function{WrapDeg}{$\Delta$} \Return $\lvert (\Delta+180)\bmod 360 - 180\rvert$ \Comment{angle error in $[0,180]$} \EndFunction
+\end{algorithmic}
+\end{algorithm}

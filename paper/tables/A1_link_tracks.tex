@@ -1,0 +1,79 @@
+% Requires, in the preamble:
+%   \usepackage{algorithm}
+%   \usepackage{algpseudocodex}   % or algpseudocode
+% Pseudocode for the Stage-2 offline track linker (scripts/02b_link_tracks.py).
+\begin{algorithm}[ht]
+\caption{\textsc{LinkTracks} --- offline fragment linker for MOT pseudo-tracks}
+\label{alg:linktracks}
+\begin{algorithmic}[1]
+\Require Pseudo-tracks $\mathcal{T}=\{\,t_i \mapsto [(f,x,y,w,h,c,\ell),\dots]\,\}$ (frame-sorted rows)
+\Statex \textbf{Params:} gap $g_{\max}$; size tol.\ $\sigma$; dist.\ tol.\ $\delta$; position flag $\rho$; edge $E$;
+\Statex \hspace{3.1em} overlap min-shared $S$, min-IoU $\theta_{o}$; dedup min-IoU $\theta_{d}$
+\Ensure Linked tracks $\mathcal{T}'$
+\Statex
+\State $\mathcal{T} \gets \Call{OverlapMerge}{\mathcal{T},S,\theta_{o}}$ \Comment{Pass 1: parallel-duplicate IDs}
+\State $\mathcal{T} \gets \Call{GapLink}{\mathcal{T},g_{\max},\sigma,\delta,\rho,E}$ \Comment{Pass 2: stitch fragments}
+\State $\mathcal{T} \gets \Call{PerFrameDedup}{\mathcal{T},\theta_{d}}$ \Comment{Pass 3: transient doubles}
+\State \Return $\mathcal{T}$
+\Statex
+\Procedure{OverlapMerge}{$\mathcal{T},S,\theta_{o}$} \Comment{iterate to convergence}
+  \Repeat
+    \State $C \gets \emptyset$
+    \ForAll{unordered pairs $(a,b)$ in $\mathcal{T}$}
+      \State $F \gets \text{frames}(a)\cap\text{frames}(b)$
+      \If{$|F| \ge S$ \textbf{and} $\operatorname{mean}_{f\in F}\operatorname{IoU}(a_f,b_f) \ge \theta_{o}$}
+        \State $(\textit{keep},\textit{rem}) \gets$ longer-lived, shorter of $(a,b)$
+        \State add $(\operatorname{mean IoU},\textit{keep},\textit{rem})$ to $C$
+      \EndIf
+    \EndFor
+    \State $M \gets \Call{GreedyMatch}{C \text{ sorted by IoU desc.}}$ \Comment{each track used once}
+    \State $\mathcal{T} \gets \Call{ApplyMerges}{\mathcal{T},M}$
+  \Until{$M = \emptyset$}
+  \State \Return $\mathcal{T}$
+\EndProcedure
+\Statex
+\Procedure{GapLink}{$\mathcal{T},g_{\max},\sigma,\delta,\rho,E$} \Comment{iterate to convergence}
+  \Repeat
+    \State for each $t$, compute summary: start/end frame, mode class, head/tail
+    \Statex \hspace{1.5em} median area \& centre over $E$ edge rows, tail velocity, box diagonals
+    \State $C \gets \emptyset$
+    \ForAll{ordered pairs $(a,b)$, $a\neq b$} \Comment{$a$=tail, $b$=head}
+      \State $s \gets \Call{MergeScore}{a,b}$; \textbf{if} $s\neq\textsc{nil}$ \textbf{then} add $(s,a,b)$ to $C$
+    \EndFor
+    \State $M \gets \Call{GreedyMatch}{C \text{ sorted by score asc.}}$
+    \State $\mathcal{T} \gets \Call{ApplyMerges}{\mathcal{T},M}$
+  \Until{$M = \emptyset$}
+  \State \Return $\mathcal{T}$
+\EndProcedure
+\Statex
+\Function{MergeScore}{$a,b$} \Comment{tail $a\to$ head $b$; lower is better}
+  \State $g \gets \text{start}(b)-\text{end}(a)$
+  \If{$g<1$ \textbf{or} $g>g_{\max}$ \textbf{or} $\text{class}(a)\neq\text{class}(b)$} \Return \textsc{nil} \EndIf
+  \State $r \gets \text{headArea}(b)/\text{tailArea}(a)$
+  \If{$r<1-\sigma$ \textbf{or} $r>1+\sigma$} \Return \textsc{nil} \EndIf
+  \State $p \gets 0$
+  \If{$\rho$} \Comment{constant-velocity check (off by default)}
+    \State $e \gets \lVert \text{headCtr}(b)-(\text{tailCtr}(a)+\text{tailVel}(a)\cdot g)\rVert$;\;\; $d \gets \max(\text{diag}_a,\text{diag}_b,1)$
+    \If{$e > \delta d$} \Return \textsc{nil} \EndIf
+    \State $p \gets e/d$
+  \EndIf
+  \State \Return $p + |r-1| + 0.01\,g$
+\EndFunction
+\Statex
+\Procedure{PerFrameDedup}{$\mathcal{T},\theta_{d}$}
+  \State freeze $\text{len}(t)\;\forall t$ \Comment{stable tie-breaks}
+  \ForAll{frames $f$ with $\ge 2$ boxes}
+    \ForAll{overlapping pairs $(a,b)$ with $\operatorname{IoU}\ge\theta_{d}$}
+      \State drop the box of the shorter track (tie: lower confidence)
+    \EndFor
+  \EndFor
+  \State remove dropped rows; discard now-empty tracks; \Return $\mathcal{T}$
+\EndProcedure
+\Statex
+\Procedure{ApplyMerges}{$\mathcal{T},M$}
+  \State relabel each removed ID to its kept ID, resolving transitive chains
+  \State on any shared frame, keep the higher-confidence row \Comment{idempotent for gap-merges}
+  \State \Return $\mathcal{T}$
+\EndProcedure
+\end{algorithmic}
+\end{algorithm}
