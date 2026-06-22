@@ -126,9 +126,9 @@ def fig_jerk():
         if j.size == 0:
             continue
         xs, ys = _ecdf(j)
-        med = float(np.median(j))
+        mean_j = float(np.mean(j))
         ax.plot(xs, ys, color=COLOR[src], linestyle=STYLE[src], linewidth=1.9,
-                label=f"{LABEL[src]}  (median {med:.0f} m/s³)")
+                label=f"{LABEL[src]}  (mean {mean_j:.1f} m/s³)")
     ax.set_xlim(0, xmax)
     ax.set_ylim(0, 1.005)
     ax.set_xlabel("Jerk |j| (m/s³, smoothed)")
@@ -406,34 +406,71 @@ def _boxes_at(path: Path, frame: int):
     return out
 
 
-def fig_scenes():
+# Eight hand-picked 120 m scene frames (static JPGs in SF2_FRAME_DIR, see below).
+# No GT/track file exists for these, so boxes come from the Stage-1 winner
+# RT-DETR-L run live at imgsz=1280.
+GALLERY_FRAMES = [
+    "01suburban_evening_120m_DJI0061_t050.jpg",
+    "01suburban_morning_120m_DJI0048_t150.jpg",
+    "02curve_evening_120m_DJI0008_t160.jpg",
+    "02curve_morning_120m_DJI0011_t280.jpg",
+    "03roundabout_eveningpeak_120m_DJI0001_t030.jpg",
+    "03roundabout_eveningpeak_120m_DJI0004_t210.jpg",
+    "04urban_eveningpeak_120m_DJI0013_t010.jpg",
+    "04urban_morningpeak_120m_DJI0003_t270.jpg",
+]
+GALLERY_WEIGHTS = PROJECT_ROOT / "runs/stage1_detectors/rtdetr_l_seed0/weights/best.pt"
+
+
+def _scene_gallery(nrows, ncols, figsize, stem, hspace=None, wspace=None,
+                   legend_y=-0.01, bottom_rect=0.03):
     import cv2
     from matplotlib.patches import Rectangle
+    from ultralytics import RTDETR
 
-    fig, axes = plt.subplots(2, 3, figsize=(12.6, 5.0))
-    for ax, (clip, label, src, tag, frame) in zip(axes.flat, SCENE_SPECS):
-        cap = cv2.VideoCapture(str(VIDEO_DIR / f"{clip}.mp4"))
-        cap.set(cv2.CAP_PROP_POS_FRAMES, frame)
-        ok, img = cap.read()
-        cap.release()
-        if not ok:
+    model = RTDETR(str(GALLERY_WEIGHTS))
+    frame_dir = Path(r"C:\Users\User\Desktop\selected frame")
+
+    fig, axes = plt.subplots(nrows, ncols, figsize=figsize)
+    for ax, fname in zip(axes.flat, GALLERY_FRAMES):
+        bgr = cv2.imread(str(frame_dir / fname))
+        if bgr is None:
+            print(f"  !! could not read {fname}; skipping")
             ax.set_visible(False)
             continue
-        ax.imshow(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
-        boxes = _boxes_at(src, frame)
-        for x, y, w, h, cls in boxes:
-            ax.add_patch(Rectangle((x, y), w, h, fill=False,
+        ax.imshow(cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB))
+        res = model.predict(bgr, imgsz=1280, conf=0.25, verbose=False)[0]
+        n = 0
+        for b in res.boxes:
+            x1, y1, x2, y2 = b.xyxy[0].tolist()
+            cls = int(b.cls[0])
+            ax.add_patch(Rectangle((x1, y1), x2 - x1, y2 - y1, fill=False,
                                    edgecolor=CLS_COLOR.get(cls, "#FFFFFF"),
                                    linewidth=0.6))
-        ax.set_title(f"{label}\n{tag}, {len(boxes)} vehicles", fontsize=9.5)
+            n += 1
+        print(f"  scene: {fname}  ({n} detections)")
         ax.set_xticks([]); ax.set_yticks([])
 
     handles = [plt.Line2D([0], [0], color=CLS_COLOR[c], lw=2, label=CLS_NAME[c])
                for c in (0, 1, 2)]
     fig.legend(handles=handles, loc="lower center", ncol=3, frameon=False,
-               bbox_to_anchor=(0.5, -0.02), fontsize=10)
-    fig.tight_layout(rect=[0, 0.02, 1, 1])
-    _save(fig, "F2_scene_gallery")
+               bbox_to_anchor=(0.5, legend_y), fontsize=10)
+    fig.tight_layout(rect=[0, bottom_rect, 1, 1])
+    if hspace is not None or wspace is not None:
+        fig.subplots_adjust(hspace=hspace, wspace=wspace)
+    _save(fig, stem)
+
+
+def fig_scenes():
+    _scene_gallery(2, 4, (16.0, 5.6), "F2_scene_gallery")
+
+
+def fig_scenes_tall():
+    # shorter figure + tight hspace packs the four rows; legend pulled up close
+    # figure width chosen so each cell's aspect ≈ the 16:9 frame aspect,
+    # else imshow pads inside the axes and the inter-column gap looks too wide.
+    _scene_gallery(4, 2, (7.0, 8.2), "F2_scene_gallery_2col",
+                   hspace=0.02, wspace=0.02, legend_y=0.015, bottom_rect=0.04)
 
 
 # --------------------------------------------------------------------------- #
@@ -1080,6 +1117,7 @@ FIGURES = {
     "gtfree": fig_gtfree,
     "calibration": fig_calibration,
     "scenes": fig_scenes,
+    "scenes_tall": fig_scenes_tall,
     "detectors": fig_detectors,
     "ablation": fig_ablation,
     "ablation_line": fig_ablation_line,
